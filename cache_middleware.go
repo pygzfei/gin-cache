@@ -1,10 +1,11 @@
-package main
+package gin_cache
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/go-redis/redis/v8"
 	"log"
 	"net/http"
@@ -34,11 +35,11 @@ type ApiCacheable struct {
 	CacheEvict []CacheEvict
 }
 
-type RedisCache struct {
+type Cache struct {
 	CacheHandler ICacheAction
 }
 
-func NewRedisCache(cacheTime time.Duration, options *redis.Options) *RedisCache {
+func NewRedisCache(cacheTime time.Duration, options *redis.Options) *Cache {
 	if options == nil {
 		log.Fatalln("Option can not be nil")
 	}
@@ -46,14 +47,14 @@ func NewRedisCache(cacheTime time.Duration, options *redis.Options) *RedisCache 
 		log.Fatalln("CacheTime greater than 0")
 	}
 	redisClient := redis.NewClient(options)
-	return &RedisCache{NewRedisHandler(redisClient, cacheTime)}
+	return &Cache{NewRedisHandler(redisClient, cacheTime)}
 }
 
-func NewMemoryCache(cacheTime time.Duration) *RedisCache {
-	return &RedisCache{NewMemoryHandler(cacheTime)}
+func NewMemoryCache(cacheTime time.Duration) *Cache {
+	return &Cache{NewMemoryHandler(cacheTime)}
 }
 
-func (this *RedisCache) Cacheable(apiCache ApiCacheable, f gin.HandlerFunc) gin.HandlerFunc {
+func (this *Cache) Handler(apiCache ApiCacheable, f gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
@@ -90,7 +91,7 @@ func (this *RedisCache) Cacheable(apiCache ApiCacheable, f gin.HandlerFunc) gin.
 	}
 }
 
-func (this *RedisCache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
+func (this *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	compile, err := regexp.Compile(`#(.*?)#`)
 	if err != nil {
 		return ""
@@ -109,20 +110,20 @@ func (this *RedisCache) getCacheKey(cacheable Cacheable, c *gin.Context) string 
 	return strings.ToLower(fmt.Sprintf(cacheable.CacheName+":"+replaceAllString, result...))
 }
 
-func (this *RedisCache) loadCache(ctx context.Context, redisKey string) string {
-	return this.CacheHandler.LoadCache(ctx, redisKey)
+func (this *Cache) loadCache(ctx context.Context, key string) string {
+	return this.CacheHandler.LoadCache(ctx, key)
 }
 
-func (this *RedisCache) setCache(ctx context.Context, key string, data string) {
+func (this *Cache) setCache(ctx context.Context, key string, data string) {
 	this.CacheHandler.SetCache(ctx, key, data)
 }
 
-func (this *RedisCache) doCacheEvict(c *gin.Context, ctx context.Context, cacheEvicts ...CacheEvict) {
+func (this *Cache) doCacheEvict(c *gin.Context, ctx context.Context, cacheEvicts ...CacheEvict) {
 	keys := []string{}
-
 	json := make(map[string]interface{})
-	err := c.BindJSON(&json)
+	err := c.ShouldBindBodyWith(&json, binding.JSON)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	compile, _ := regexp.Compile(`#(.*?)#`)

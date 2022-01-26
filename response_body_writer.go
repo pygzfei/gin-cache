@@ -1,4 +1,4 @@
-package main
+package gin_cache
 
 import (
 	"bytes"
