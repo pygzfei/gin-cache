@@ -1,4 +1,4 @@
-module redis-aop
+module github.com/pygzfei/gin-cache
 
 go 1.17
 
