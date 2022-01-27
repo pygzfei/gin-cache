@@ -183,7 +183,7 @@ func Test_Memory_Timeout_Event(t *testing.T) {
 			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", key, val), nil)
 			r.ServeHTTP(w, req)
 
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 2)
 			loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", key, val))
 			assert.Equal(t, loadCache, "")
 		})
