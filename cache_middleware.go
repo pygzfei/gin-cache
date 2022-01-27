@@ -54,15 +54,17 @@ func NewMemoryCache(cacheTime time.Duration) *Cache {
 	return &Cache{NewMemoryHandler(cacheTime)}
 }
 
-func (this *Cache) Handler(apiCache Caching, f gin.HandlerFunc) gin.HandlerFunc {
+func (this *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
 		doCache := len(apiCache.Cacheable) > 0
 		doEvict := len(apiCache.Evict) > 0
-		var cacheString string
 		ctx := context.Background()
+
 		var key string
+		var cacheString string
+
 		if doCache {
 			// pointer 指向 writer, 重写 c.writer
 			c.Writer = &ResponseBodyWriter{
@@ -75,7 +77,7 @@ func (this *Cache) Handler(apiCache Caching, f gin.HandlerFunc) gin.HandlerFunc 
 		}
 
 		if cacheString == "" {
-			f(c)
+			next(c)
 		} else {
 			c.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 			c.String(http.StatusOK, cacheString)
@@ -96,9 +98,9 @@ func (this *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	if err != nil {
 		return ""
 	}
-	submatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
-	result := make([]interface{}, len(submatch))
-	for i, item := range submatch {
+	subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
+	result := make([]interface{}, len(subMatch))
+	for i, item := range subMatch {
 		s := item[1]
 		if s != "" {
 			if query, b := c.GetQuery(s); b {
@@ -128,9 +130,9 @@ func (this *Cache) doCacheEvict(c *gin.Context, ctx context.Context, cacheEvicts
 	}
 	compile, _ := regexp.Compile(`#(.*?)#`)
 	for _, evict := range cacheEvicts {
-		submatch := compile.FindAllStringSubmatch(evict.Key, -1)
-		result := make([]interface{}, len(submatch))
-		for i, item := range submatch {
+		subMatch := compile.FindAllStringSubmatch(evict.Key, -1)
+		result := make([]interface{}, len(subMatch))
+		for i, item := range subMatch {
 			s := item[1]
 			if s != "" {
 				param := json[s]

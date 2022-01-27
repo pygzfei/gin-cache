@@ -30,7 +30,7 @@ func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	}
 }
 
-func (this *memoryHandler) LoadCache(ctx context.Context, key string) string {
+func (this *memoryHandler) LoadCache(_ context.Context, key string) string {
 	load, ok := this.cacheStore.Load(key)
 	if ok {
 		return load.(string)
@@ -44,7 +44,7 @@ func (this *memoryHandler) SetCache(ctx context.Context, key string, data string
 	// timeout
 	schedule := Schedule{Key: key, timer: time.NewTimer(this.cacheTime)}
 	this.schedules[key] = schedule.timer
-	mux.Unlock()
+	defer mux.Unlock()
 
 	go func(s Schedule) {
 		select {
@@ -56,7 +56,7 @@ func (this *memoryHandler) SetCache(ctx context.Context, key string, data string
 	}(schedule)
 }
 
-func (this *memoryHandler) DoCacheEvict(ctx context.Context, keys []string) {
+func (this *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 	mux.Lock()
 	deleteKeys := []string{}
 	for _, key := range keys {
@@ -83,5 +83,5 @@ func (this *memoryHandler) DoCacheEvict(ctx context.Context, keys []string) {
 		}
 		delete(this.schedules, key)
 	}
-	mux.Unlock()
+	defer mux.Unlock()
 }
