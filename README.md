@@ -1,5 +1,6 @@
-## Gin 缓存中间件, 实现了两种缓存机制
-## Quick start
+## Gin cache middleware
+## Quick start 
+Use memory cache 
 ```
 package main
 
@@ -23,7 +24,7 @@ func main() {
 		},
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"message": "pong",
+				"message": "pong", // response data will be cache
 			})
 		},
 	))
@@ -44,9 +45,7 @@ r.POST("/ping", cache.Handler(
         },
     },
     func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "// Accurately delete `anson:id:YourId` in cache",
-        })
+        // ...
     },
 ))
 
