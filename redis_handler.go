@@ -18,18 +18,18 @@ func NewRedisHandler(client *redis.Client, cacheTime time.Duration) *redisHandle
 	return &redisHandler{cacheStore: client, cacheTime: cacheTime}
 }
 
-func (handler *redisHandler) LoadCache(ctx context.Context, key string) string {
-	return handler.cacheStore.Get(ctx, key).Val()
+func (r *redisHandler) LoadCache(ctx context.Context, key string) string {
+	return r.cacheStore.Get(ctx, key).Val()
 }
 
-func (handler *redisHandler) SetCache(ctx context.Context, key string, data string) {
-	handler.cacheStore.Set(ctx, key, data, handler.cacheTime)
+func (r *redisHandler) SetCache(ctx context.Context, key string, data string) {
+	r.cacheStore.Set(ctx, key, data, r.cacheTime)
 }
 
-func (handler *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
+func (r *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 	for _, key := range keys {
 		var cursor uint64
-		deleteKeys, _, err := handler.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()
+		deleteKeys, _, err := r.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()
 
 		if err != nil {
 			log.Println(err)
@@ -37,7 +37,7 @@ func (handler *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 		}
 
 		if len(deleteKeys) > 0 && err == nil {
-			handler.cacheStore.Del(ctx, deleteKeys...)
+			r.cacheStore.Del(ctx, deleteKeys...)
 		}
 	}
 }
