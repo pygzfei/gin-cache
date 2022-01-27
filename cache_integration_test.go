@@ -203,6 +203,9 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodDelete, "/pings", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
 				r.ServeHTTP(w, req)
 
+				equalJSON, _ := AreEqualJSON(fmt.Sprintf(`{"message": "12123"}`), w.Body.String())
+				assert.True(t, equalJSON)
+
 				w = httptest.NewRecorder()
 				req, _ = http.NewRequest(http.MethodPut, "/ping", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
 				r.ServeHTTP(w, req)
