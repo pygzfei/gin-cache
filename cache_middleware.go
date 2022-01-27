@@ -101,8 +101,8 @@ func (cache *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerF
 }
 
 func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
-	compile, err := regexp.Compile(`#(.*?)#`)
-	if err != nil {
+	compile, _ := regexp.Compile(`#(.*?)#`)
+	if compile == nil {
 		return ""
 	}
 	subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
