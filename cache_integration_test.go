@@ -171,6 +171,21 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 					},
 				))
 
+				r.DELETE("/pings", cache.Handler(
+					Caching{
+						Evict: []CacheEvict{
+							{CacheName: []string{"anson"}, Key: "name:#name#"},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.ShouldBindBodyWith(&json, binding.JSON)
+						c.JSON(200, gin.H{
+							"message": "12123",
+						})
+					},
+				))
+
 				r.GET("/pings", cache.Handler(
 					Caching{
 						Cacheable: []Cacheable{
@@ -185,7 +200,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 					},
 				))
 				w := httptest.NewRecorder()
-				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/pings?hash=%s", item.Hash), nil)
+				req, _ := http.NewRequest(http.MethodDelete, "/pings", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
 				r.ServeHTTP(w, req)
 
 				w = httptest.NewRecorder()

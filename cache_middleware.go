@@ -132,7 +132,6 @@ func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvict
 	json := make(map[string]interface{})
 	err := c.ShouldBindBodyWith(&json, binding.JSON)
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 	compile, _ := regexp.Compile(`#(.*?)#`)

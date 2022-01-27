@@ -3,7 +3,6 @@ package gincache
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
-	"log"
 	"math"
 	"time"
 )
@@ -30,11 +29,6 @@ func (r *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 	for _, key := range keys {
 		var cursor uint64
 		deleteKeys, _, err := r.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()
-
-		if err != nil {
-			log.Println(err)
-			return
-		}
 
 		if len(deleteKeys) > 0 && err == nil {
 			r.cacheStore.Del(ctx, deleteKeys...)
