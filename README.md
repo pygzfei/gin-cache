@@ -3,6 +3,10 @@
 [![codecov](https://codecov.io/gh/pygzfei/gin-cache/branch/main/graph/badge.svg)](https://codecov.io/gh/pygzfei/gin-cache)
 
 ## Gin cache middleware
+## Install
+```
+go get -u github.com/pygzfei/gin-cache
+```
 ## Quick start 
 Use memory cache 
 ```
