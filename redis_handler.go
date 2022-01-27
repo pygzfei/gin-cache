@@ -1,4 +1,4 @@
-package gin_cache
+package gincache
 
 import (
 	"context"
@@ -13,22 +13,23 @@ type redisHandler struct {
 	cacheTime  time.Duration
 }
 
+// NewRedisHandler do new Redis cache object
 func NewRedisHandler(client *redis.Client, cacheTime time.Duration) *redisHandler {
 	return &redisHandler{cacheStore: client, cacheTime: cacheTime}
 }
 
-func (this *redisHandler) LoadCache(ctx context.Context, key string) string {
-	return this.cacheStore.Get(ctx, key).Val()
+func (handler *redisHandler) LoadCache(ctx context.Context, key string) string {
+	return handler.cacheStore.Get(ctx, key).Val()
 }
 
-func (this *redisHandler) SetCache(ctx context.Context, key string, data string) {
-	this.cacheStore.Set(ctx, key, data, this.cacheTime)
+func (handler *redisHandler) SetCache(ctx context.Context, key string, data string) {
+	handler.cacheStore.Set(ctx, key, data, handler.cacheTime)
 }
 
-func (this *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
+func (handler *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 	for _, key := range keys {
 		var cursor uint64
-		deleteKeys, _, err := this.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()
+		deleteKeys, _, err := handler.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()
 
 		if err != nil {
 			log.Println(err)
@@ -36,7 +37,7 @@ func (this *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 		}
 
 		if len(deleteKeys) > 0 && err == nil {
-			this.cacheStore.Del(ctx, deleteKeys...)
+			handler.cacheStore.Del(ctx, deleteKeys...)
 		}
 	}
 }

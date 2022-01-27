@@ -1,4 +1,4 @@
-package gin_cache
+package gincache
 
 import (
 	"context"
@@ -23,7 +23,7 @@ const (
 	RedisCache  RunFor = 0
 )
 
-func GivingCacheOfHttpServer(timeout time.Duration, runFor RunFor) (*gin.Engine, *Cache) {
+func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor) (*gin.Engine, *Cache) {
 	var cache *Cache
 
 	if runFor == MemoryCache {
@@ -93,7 +93,7 @@ func Test_Cache_CanStore(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := GivingCacheOfHttpServer(time.Hour, runFor)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				w := httptest.NewRecorder()
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
@@ -125,7 +125,7 @@ func Test_Cache_Evict(t *testing.T) {
 			{Id: "1", Hash: "anson"},
 		} {
 			t.Run(fmt.Sprintf(`can cache %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := GivingCacheOfHttpServer(time.Hour, runFor)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 				w := httptest.NewRecorder()
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
 				r.ServeHTTP(w, req)
@@ -154,7 +154,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 			{Hash: "hash333"},
 		} {
 			t.Run(fmt.Sprintf(`can like delete %s`, item.Hash), func(t *testing.T) {
-				r, cache := GivingCacheOfHttpServer(time.Hour, runFor)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.PUT("/ping", cache.Handler(
 					Caching{
@@ -216,7 +216,7 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 				} else {
 					timeout = time.Second
 				}
-				r, cache := GivingCacheOfHttpServer(timeout, runFor)
+				r, cache := givingCacheOfHttpServer(timeout, runFor)
 				w := httptest.NewRecorder()
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", key, val), nil)
 				r.ServeHTTP(w, req)

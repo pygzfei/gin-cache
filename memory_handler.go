@@ -1,4 +1,4 @@
-package gin_cache
+package gincache
 
 import (
 	"context"
@@ -9,9 +9,10 @@ import (
 
 type Schedule struct {
 	Key   string
-	timer *time.Timer
+	Timer *time.Timer
 }
 
+// memoryHandler is private
 type memoryHandler struct {
 	cacheStore sync.Map
 	cacheTime  time.Duration
@@ -21,6 +22,7 @@ type memoryHandler struct {
 
 var mux sync.Mutex
 
+// NewMemoryHandler do new memory cache object
 func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	return &memoryHandler{
 		cacheStore: sync.Map{},
@@ -30,38 +32,38 @@ func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	}
 }
 
-func (this *memoryHandler) LoadCache(_ context.Context, key string) string {
-	load, ok := this.cacheStore.Load(key)
+func (m *memoryHandler) LoadCache(_ context.Context, key string) string {
+	load, ok := m.cacheStore.Load(key)
 	if ok {
 		return load.(string)
 	}
 	return ""
 }
 
-func (this *memoryHandler) SetCache(ctx context.Context, key string, data string) {
+func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 	mux.Lock()
-	this.cacheStore.Store(key, data)
+	m.cacheStore.Store(key, data)
 	// timeout
-	schedule := Schedule{Key: key, timer: time.NewTimer(this.cacheTime)}
-	this.schedules[key] = schedule.timer
+	schedule := Schedule{Key: key, Timer: time.NewTimer(m.cacheTime)}
+	m.schedules[key] = schedule.Timer
 	defer mux.Unlock()
 
 	go func(s Schedule) {
 		select {
-		case <-s.timer.C:
-			this.DoCacheEvict(ctx, []string{s.Key})
+		case <-s.Timer.C:
+			m.DoCacheEvict(ctx, []string{s.Key})
 		default:
 			return
 		}
 	}(schedule)
 }
 
-func (this *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
+func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 	mux.Lock()
 	deleteKeys := []string{}
 	for _, key := range keys {
 		isEndingStar := key[len(key)-1:]
-		this.cacheStore.Range(func(keyInMap, value interface{}) bool {
+		m.cacheStore.Range(func(keyInMap, value interface{}) bool {
 			// match *
 			if isEndingStar == "*" {
 				if strings.Contains(keyInMap.(string), strings.ReplaceAll(key, "*", "")) {
@@ -76,12 +78,12 @@ func (this *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 		})
 	}
 	for _, key := range deleteKeys {
-		this.cacheStore.Delete(key)
-		timer := this.schedules[key]
+		m.cacheStore.Delete(key)
+		timer := m.schedules[key]
 		if timer != nil {
 			timer.Stop()
 		}
-		delete(this.schedules, key)
+		delete(m.schedules, key)
 	}
 	defer mux.Unlock()
 }

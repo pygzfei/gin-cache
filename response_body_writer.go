@@ -1,16 +1,17 @@
-package gin_cache
+package gincache
 
 import (
 	"bytes"
 	"github.com/gin-gonic/gin"
 )
 
+// ResponseBodyWriter do change transform io writer
 type ResponseBodyWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
 }
 
-func (this ResponseBodyWriter) Write(b []byte) (int, error) {
-	this.body.Write(b)
-	return this.ResponseWriter.Write(b)
+func (r ResponseBodyWriter) Write(b []byte) (int, error) {
+	r.body.Write(b)
+	return r.ResponseWriter.Write(b)
 }
