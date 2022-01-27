@@ -1,4 +1,5 @@
 [![Build Status](https://github.com/pygzfei/gin-cache/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/pygzfei/gin-cache/actions?query=branch%3Amaster)
+[![Go Report Card](https://goreportcard.com/badge/github.com/pygzfei/gin-cache)](https://goreportcard.com/report/github.com/pygzfei/gin-cache)
 
 ## Gin cache middleware
 ## Quick start 
