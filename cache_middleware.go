@@ -30,9 +30,9 @@ type CacheEvict struct {
 	Key       string
 }
 
-type ApiCacheable struct {
-	Cacheable  []Cacheable
-	CacheEvict []CacheEvict
+type Caching struct {
+	Cacheable []Cacheable
+	Evict     []CacheEvict
 }
 
 type Cache struct {
@@ -54,12 +54,12 @@ func NewMemoryCache(cacheTime time.Duration) *Cache {
 	return &Cache{NewMemoryHandler(cacheTime)}
 }
 
-func (this *Cache) Handler(apiCache ApiCacheable, f gin.HandlerFunc) gin.HandlerFunc {
+func (this *Cache) Handler(apiCache Caching, f gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
 		doCache := len(apiCache.Cacheable) > 0
-		doEvict := len(apiCache.CacheEvict) > 0
+		doEvict := len(apiCache.Evict) > 0
 		var cacheString string
 		ctx := context.Background()
 		var key string
@@ -86,7 +86,7 @@ func (this *Cache) Handler(apiCache ApiCacheable, f gin.HandlerFunc) gin.Handler
 			this.setCache(ctx, key, c.Writer.(*ResponseBodyWriter).body.String())
 		}
 		if doEvict {
-			this.doCacheEvict(c, ctx, apiCache.CacheEvict...)
+			this.doCacheEvict(c, ctx, apiCache.Evict...)
 		}
 	}
 }

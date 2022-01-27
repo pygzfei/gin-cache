@@ -24,7 +24,7 @@ func GivingHttpServer(timeout time.Duration) (*gin.Engine, *Cache) {
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
-		ApiCacheable{
+		Caching{
 			Cacheable: []Cacheable{
 				{CacheName: "anson", Key: `userId:#id# hash:#hash#`},
 			},
@@ -40,8 +40,8 @@ func GivingHttpServer(timeout time.Duration) (*gin.Engine, *Cache) {
 	))
 
 	r.POST("/ping", cache.Handler(
-		ApiCacheable{
-			CacheEvict: []CacheEvict{
+		Caching{
+			Evict: []CacheEvict{
 				{CacheName: []string{"anson"}, Key: "userId:#id#*"},
 			},
 		},
@@ -128,8 +128,8 @@ func Test_MemoryCache_Fuzzy_Evict(t *testing.T) {
 			r, cache := GivingHttpServer(time.Hour)
 
 			r.PUT("/ping", cache.Handler(
-				ApiCacheable{
-					CacheEvict: []CacheEvict{
+				Caching{
+					Evict: []CacheEvict{
 						{CacheName: []string{"anson"}, Key: "hash*"},
 					},
 				},
@@ -143,7 +143,7 @@ func Test_MemoryCache_Fuzzy_Evict(t *testing.T) {
 			))
 
 			r.GET("/pings", cache.Handler(
-				ApiCacheable{
+				Caching{
 					Cacheable: []Cacheable{
 						{CacheName: "anson", Key: `hash:#hash#`},
 					},
