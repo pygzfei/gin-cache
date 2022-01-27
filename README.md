@@ -1,3 +1,5 @@
+[![Build Status](https://github.com/pygzfei/gin-cache/actions/workflows/go.yml/badge.svg?branch=main)](https://github.com/pygzfei/gin-cache/actions?query=branch%3Amaster)
+
 ## Gin cache middleware
 ## Quick start 
 Use memory cache 
