@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// ICacheAction : memoryHandler and redisHandler implement
 type ICacheAction interface {
 	LoadCache(ctx context.Context, key string) string
 	SetCache(ctx context.Context, key string, data string)
@@ -51,8 +52,7 @@ func NewRedisCache(cacheTime time.Duration, options *redis.Options) *Cache {
 	if cacheTime <= 0 {
 		log.Fatalln("CacheTime greater than 0")
 	}
-	redisClient := redis.NewClient(options)
-	return &Cache{NewRedisHandler(redisClient, cacheTime)}
+	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime)}
 }
 
 // NewMemoryCache init memory support
@@ -60,6 +60,7 @@ func NewMemoryCache(cacheTime time.Duration) *Cache {
 	return &Cache{NewMemoryHandler(cacheTime)}
 }
 
+// Handler for cache
 func (cache *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {

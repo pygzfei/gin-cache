@@ -20,7 +20,7 @@ type RunFor uint8
 
 const (
 	MemoryCache RunFor = 0
-	RedisCache  RunFor = 0
+	RedisCache  RunFor = 1
 )
 
 func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor) (*gin.Engine, *Cache) {
@@ -188,13 +188,11 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/pings?hash=%s", item.Hash), nil)
 				r.ServeHTTP(w, req)
 
-				cacheValue := cache.loadCache(context.Background(), fmt.Sprintf("anson:hash:%s", item.Hash))
-
 				w = httptest.NewRecorder()
 				req, _ = http.NewRequest(http.MethodPut, "/ping", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
 				r.ServeHTTP(w, req)
 
-				cacheValue = cache.loadCache(context.Background(), fmt.Sprintf("anson:hash:%s", item.Hash))
+				cacheValue := cache.loadCache(context.Background(), fmt.Sprintf("anson:hash:%s", item.Hash))
 				assert.Equal(t, cacheValue, "")
 			})
 		}

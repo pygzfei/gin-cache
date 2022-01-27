@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Schedule entity
 type Schedule struct {
 	Key   string
 	Timer *time.Timer
