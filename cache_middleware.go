@@ -46,11 +46,8 @@ type Cache struct {
 
 // NewRedisCache init redis support
 func NewRedisCache(cacheTime time.Duration, options *redis.Options) *Cache {
-	if options == nil {
-		log.Fatalln("Option can not be nil")
-	}
-	if cacheTime <= 0 {
-		log.Fatalln("CacheTime greater than 0")
+	if options == nil || cacheTime <= 0 {
+		log.Fatalln("Option can not be nil or CacheTime greater than 0")
 	}
 	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime)}
 }
@@ -102,9 +99,6 @@ func (cache *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerF
 
 func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	compile, _ := regexp.Compile(`#(.*?)#`)
-	if compile == nil {
-		return ""
-	}
 	subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
 	result := make([]interface{}, len(subMatch))
 	for i, item := range subMatch {
