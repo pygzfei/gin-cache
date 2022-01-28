@@ -119,22 +119,3 @@ r.GET("/pings", cache.Handler(
     },
 ))
 ```
-当然有时候, 当缓存失效了, 我们也想被通知, 那么我们可以这样做
-```
-r.POST("/ping", cache.Handler(
-    Caching{
-        Evict: []CacheEvict{
-            {CacheName: []string{"anson"}, Key: "id:#id#*", 
-            AfterEvict: CacheEvictHook{
-                func(c *gin.Context, cacheKeys []string) {
-                    // key失效时, 将会被触发
-                },
-            }},
-        },
-    },
-    func(c *gin.Context) {
-        // ...
-    },
-))
-
-```

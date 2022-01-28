@@ -25,7 +25,7 @@ func (r *redisHandler) SetCache(ctx context.Context, key string, data string) {
 	r.cacheStore.Set(ctx, key, data, r.cacheTime)
 }
 
-func (r *redisHandler) DoCacheEvict(ctx context.Context, keys []string) []string {
+func (r *redisHandler) DoCacheEvict(ctx context.Context, keys []string) {
 	evictKeys := []string{}
 	for _, key := range keys {
 		var cursor uint64
@@ -39,5 +39,4 @@ func (r *redisHandler) DoCacheEvict(ctx context.Context, keys []string) []string
 	if len(evictKeys) > 0 {
 		r.cacheStore.Del(ctx, evictKeys...)
 	}
-	return evictKeys
 }

@@ -238,11 +238,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.PUT("/ping", cache.Handler(
 					Caching{
 						Evict: []CacheEvict{
-							{CacheName: []string{"anson"}, Key: "hash*", AfterEvict: CacheEvictHook{
-								func(c *gin.Context, cacheKeys []string) {
-									assert.True(t, len(cacheKeys) > 0)
-								},
-							}},
+							{CacheName: []string{"anson"}, Key: "hash*"},
 						},
 					},
 					func(c *gin.Context) {

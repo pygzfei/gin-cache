@@ -18,12 +18,11 @@ import (
 type ICacheAction interface {
 	LoadCache(ctx context.Context, key string) string
 	SetCache(ctx context.Context, key string, data string)
-	DoCacheEvict(ctx context.Context, keys []string) []string
+	DoCacheEvict(ctx context.Context, keys []string)
 }
 
 // CacheHitHook cache on hit hook
 type CacheHitHook []func(c *gin.Context, cacheValue string)
-type CacheEvictHook []func(c *gin.Context, cacheKeys []string)
 
 // Cacheable do caching
 type Cacheable struct {
@@ -34,9 +33,8 @@ type Cacheable struct {
 
 // CacheEvict do Evict
 type CacheEvict struct {
-	CacheName  []string
-	Key        string
-	AfterEvict CacheEvictHook // 缓存失效 钩子
+	CacheName []string
+	Key       string
 }
 
 // Caching mixins Cacheable and CacheEvict
@@ -154,13 +152,7 @@ func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvict
 		}
 	}
 	if len(keys) > 0 {
-		evictKeys := cache.CacheHandler.DoCacheEvict(ctx, keys)
-
-		for _, evict := range cacheEvicts {
-			if len(evict.AfterEvict) > 0 && len(evictKeys) > 0 {
-				evict.AfterEvict[0](c, evictKeys)
-			}
-		}
+		cache.CacheHandler.DoCacheEvict(ctx, keys)
 	}
 }
 
