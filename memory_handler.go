@@ -2,7 +2,6 @@ package gincache
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -59,7 +58,6 @@ func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 
 func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 	mux.Lock()
-	fmt.Println(keys)
 	evictKeys := []string{}
 	for _, key := range keys {
 		isEndingStar := key[len(key)-1:]
