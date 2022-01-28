@@ -47,16 +47,13 @@ func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 	// timeout
 	schedule := Schedule{Key: key, Timer: time.NewTimer(m.cacheTime)}
 	m.schedules[key] = schedule.Timer
-	defer mux.Unlock()
-
-	go func(s Schedule) {
+	go func(s *Schedule) {
 		select {
 		case <-s.Timer.C:
 			m.DoCacheEvict(ctx, []string{s.Key})
-		default:
-			return
 		}
-	}(schedule)
+	}(&schedule)
+	defer mux.Unlock()
 }
 
 func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) []string {

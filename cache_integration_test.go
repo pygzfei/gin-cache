@@ -319,7 +319,7 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 			t.Run("%s %s", func(t *testing.T) {
 				var timeout time.Duration
 				if runFor == MemoryCache {
-					timeout = time.Millisecond * 0
+					timeout = time.Second * 1
 				} else {
 					timeout = time.Second
 				}
@@ -328,8 +328,10 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", key, val), nil)
 				r.ServeHTTP(w, req)
 
-				time.Sleep(time.Second * 3)
-				loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", key, val))
+				cacheKey := fmt.Sprintf("anson:userid:%s hash:%s", key, val)
+
+				time.Sleep(time.Second * 2)
+				loadCache := cache.loadCache(context.Background(), cacheKey)
 				assert.Equal(t, loadCache, "")
 			})
 		}
