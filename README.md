@@ -85,20 +85,20 @@ cache := NewRedisCache(time.Second*30, &redis.Options{
 ```
 
 ## Hooks
-### 缓存实例, 默认返回"application/json; Charset=utf-8", 类似的代码如下:
+缓存实例, 默认返回"application/json; Charset=utf-8", 类似的代码如下:
 ```
 ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 ctx.String(http.StatusOK, cacheValue)
 ctx.Abort()
 ````
-### 可以使用全局的Hook拦截返回信息
+可以使用全局的Hook拦截返回信息
 ```
 cache := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
     // 被缓存的值, 可以在全局拦截
 })
 
 ```
-### 也可以使用独立的Hook去拦截某个消息返回
+也可以使用独立的Hook去拦截某个消息返回
 ```
 cache := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
     // 这里不会被执行
@@ -119,7 +119,7 @@ r.GET("/pings", cache.Handler(
     },
 ))
 ```
-### 当然有时候, 当缓存失效了, 我们也想被通知, 那么我们可以这样做
+当然有时候, 当缓存失效了, 我们也想被通知, 那么我们可以这样做
 ```
 r.POST("/ping", cache.Handler(
     Caching{
