@@ -28,9 +28,9 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	var cache *Cache
 
 	if runFor == MemoryCache {
-		cache = NewMemoryCache(timeout, onHit...)
+		cache, _ = NewMemoryCache(timeout, onHit...)
 	} else if runFor == RedisCache {
-		cache = NewRedisCache(
+		cache, _ = NewRedisCache(
 			timeout,
 			&redis.Options{
 				Addr:     "localhost:6379",
@@ -332,6 +332,15 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 			})
 		}
 	}
+}
+
+func Test_Redis_Not_Option_Start_Up_Will_Fail(t *testing.T) {
+	cache, err := NewRedisCache(time.Second*1, nil)
+	assert.Error(t, err)
+	assert.Nil(t, cache)
+	cache, err = NewMemoryCache(time.Second*-1, nil)
+	assert.Error(t, err)
+	assert.Nil(t, cache)
 }
 
 func AreEqualJSON(s1, s2 string) (bool, error) {

@@ -3,11 +3,11 @@ package gincache
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-redis/redis/v8"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -50,16 +50,19 @@ type Cache struct {
 }
 
 // NewRedisCache init redis support
-func NewRedisCache(cacheTime time.Duration, options *redis.Options, onCacheHit ...func(c *gin.Context, cacheValue string)) *Cache {
+func NewRedisCache(cacheTime time.Duration, options *redis.Options, onCacheHit ...func(c *gin.Context, cacheValue string)) (*Cache, error) {
 	if options == nil || cacheTime <= 0 {
-		log.Fatalln("Option can not be nil or CacheTime greater than 0")
+		return nil, errors.New("option can not be nil or CacheTime greater than 0")
 	}
-	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime), onCacheHit}
+	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime), onCacheHit}, nil
 }
 
 // NewMemoryCache init memory support
-func NewMemoryCache(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) *Cache {
-	return &Cache{NewMemoryHandler(cacheTime), onCacheHit}
+func NewMemoryCache(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) (*Cache, error) {
+	if cacheTime <= 0 {
+		return nil, errors.New("CacheTime greater than 0")
+	}
+	return &Cache{NewMemoryHandler(cacheTime), onCacheHit}, nil
 }
 
 // Handler for cache
@@ -127,10 +130,8 @@ func (cache *Cache) setCache(ctx context.Context, key string, data string) {
 func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvicts ...CacheEvict) {
 	keys := []string{}
 	json := make(map[string]interface{})
-	err := c.ShouldBindBodyWith(&json, binding.JSON)
-	if err != nil {
-		return
-	}
+	c.ShouldBindBodyWith(&json, binding.JSON)
+
 	compile, _ := regexp.Compile(`#(.*?)#`)
 	for _, evict := range cacheEvicts {
 		subMatch := compile.FindAllStringSubmatch(evict.Key, -1)
