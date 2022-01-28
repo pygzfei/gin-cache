@@ -18,19 +18,25 @@ import (
 type ICacheAction interface {
 	LoadCache(ctx context.Context, key string) string
 	SetCache(ctx context.Context, key string, data string)
-	DoCacheEvict(ctx context.Context, keys []string)
+	DoCacheEvict(ctx context.Context, keys []string) []string
 }
+
+// CacheHitHook cache on hit hook
+type CacheHitHook []func(c *gin.Context, cacheValue string)
+type CacheEvictHook []func(c *gin.Context, cacheKeys []string)
 
 // Cacheable do caching
 type Cacheable struct {
-	CacheName string
-	Key       string
+	CacheName  string
+	Key        string
+	onCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
 }
 
 // CacheEvict do Evict
 type CacheEvict struct {
-	CacheName []string
-	Key       string
+	CacheName  []string
+	Key        string
+	AfterEvict CacheEvictHook // 缓存失效 钩子
 }
 
 // Caching mixins Cacheable and CacheEvict
@@ -42,28 +48,29 @@ type Caching struct {
 // Cache handler
 type Cache struct {
 	CacheHandler ICacheAction
+	OnCacheHit   CacheHitHook // 命中缓存钩子 优先级低
 }
 
 // NewRedisCache init redis support
-func NewRedisCache(cacheTime time.Duration, options *redis.Options) *Cache {
+func NewRedisCache(cacheTime time.Duration, options *redis.Options, onCacheHit ...func(c *gin.Context, cacheValue string)) *Cache {
 	if options == nil || cacheTime <= 0 {
 		log.Fatalln("Option can not be nil or CacheTime greater than 0")
 	}
-	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime)}
+	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime), onCacheHit}
 }
 
 // NewMemoryCache init memory support
-func NewMemoryCache(cacheTime time.Duration) *Cache {
-	return &Cache{NewMemoryHandler(cacheTime)}
+func NewMemoryCache(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) *Cache {
+	return &Cache{NewMemoryHandler(cacheTime), onCacheHit}
 }
 
 // Handler for cache
-func (cache *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerFunc {
+func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
-		doCache := len(apiCache.Cacheable) > 0
-		doEvict := len(apiCache.Evict) > 0
+		doCache := len(caching.Cacheable) > 0
+		doEvict := len(caching.Evict) > 0
 		ctx := context.Background()
 
 		var key string
@@ -76,23 +83,21 @@ func (cache *Cache) Handler(apiCache Caching, next gin.HandlerFunc) gin.HandlerF
 				ResponseWriter: c.Writer,
 			}
 
-			key = cache.getCacheKey(apiCache.Cacheable[0], c)
+			key = cache.getCacheKey(caching.Cacheable[0], c)
 			cacheString = cache.loadCache(ctx, key)
 		}
 
 		if cacheString == "" {
 			next(c)
 		} else {
-			c.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
-			c.String(http.StatusOK, cacheString)
-			c.Abort()
-			return
+			cache.doCacheHit(c, caching, cacheString)
 		}
-		if doCache {
-			cache.setCache(ctx, key, c.Writer.(*ResponseBodyWriter).body.String())
+		if doCache && cacheString == "" {
+			s := c.Writer.(*ResponseBodyWriter).body.String()
+			cache.setCache(ctx, key, s)
 		}
 		if doEvict {
-			cache.doCacheEvict(ctx, c, apiCache.Evict...)
+			cache.doCacheEvict(ctx, c, caching.Evict...)
 		}
 	}
 }
@@ -149,6 +154,32 @@ func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvict
 		}
 	}
 	if len(keys) > 0 {
-		cache.CacheHandler.DoCacheEvict(ctx, keys)
+		evictKeys := cache.CacheHandler.DoCacheEvict(ctx, keys)
+
+		for _, evict := range cacheEvicts {
+			if len(evict.AfterEvict) > 0 && len(evictKeys) > 0 {
+				evict.AfterEvict[0](c, evictKeys)
+			}
+		}
 	}
+}
+
+func (cache *Cache) doCacheHit(ctx *gin.Context, caching Caching, cacheValue string) {
+
+	if len(caching.Cacheable[0].onCacheHit) > 0 {
+		caching.Cacheable[0].onCacheHit[0](ctx, cacheValue)
+		ctx.Abort()
+		return
+	}
+
+	if len(cache.OnCacheHit) > 0 {
+		cache.OnCacheHit[0](ctx, cacheValue)
+		ctx.Abort()
+		return
+	}
+
+	// default hit cache
+	ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
+	ctx.String(http.StatusOK, cacheValue)
+	ctx.Abort()
 }

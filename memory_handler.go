@@ -59,26 +59,26 @@ func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 	}(schedule)
 }
 
-func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
+func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) []string {
 	mux.Lock()
-	deleteKeys := []string{}
+	evictKeys := []string{}
 	for _, key := range keys {
 		isEndingStar := key[len(key)-1:]
 		m.cacheStore.Range(func(keyInMap, value interface{}) bool {
 			// match *
 			if isEndingStar == "*" {
 				if strings.Contains(keyInMap.(string), strings.ReplaceAll(key, "*", "")) {
-					deleteKeys = append(deleteKeys, keyInMap.(string))
+					evictKeys = append(evictKeys, keyInMap.(string))
 				}
 			} else {
 				if keyInMap == key {
-					deleteKeys = append(deleteKeys, key)
+					evictKeys = append(evictKeys, key)
 				}
 			}
 			return true
 		})
 	}
-	for _, key := range deleteKeys {
+	for _, key := range evictKeys {
 		m.cacheStore.Delete(key)
 		timer := m.schedules[key]
 		if timer != nil {
@@ -87,4 +87,5 @@ func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 		delete(m.schedules, key)
 	}
 	defer mux.Unlock()
+	return evictKeys
 }

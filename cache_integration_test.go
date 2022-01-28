@@ -3,6 +3,7 @@ package gincache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -23,13 +24,11 @@ const (
 	RedisCache  RunFor = 1
 )
 
-func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor) (*gin.Engine, *Cache) {
+func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func(c *gin.Context, cacheValue string)) (*gin.Engine, *Cache) {
 	var cache *Cache
 
 	if runFor == MemoryCache {
-		cache = NewMemoryCache(
-			timeout,
-		)
+		cache = NewMemoryCache(timeout, onHit...)
 	} else if runFor == RedisCache {
 		cache = NewRedisCache(
 			timeout,
@@ -38,6 +37,7 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor) (*gin.Engine,
 				Password: "",
 				DB:       0,
 			},
+			onHit...,
 		)
 	}
 
@@ -93,7 +93,9 @@ func Test_Cache_CanStore(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
+					assert.True(t, len(cacheValue) > 0)
+				})
 
 				w := httptest.NewRecorder()
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
@@ -102,10 +104,87 @@ func Test_Cache_CanStore(t *testing.T) {
 				loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
 				assert.Equal(t, 200, w.Code)
 
-				assert.Equal(t, w.Body.String(), loadCache)
-
-				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), w.Body.String())
+				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), loadCache)
 				assert.Equal(t, equalJSON && err == nil, true)
+
+				// test for cache hit hook
+				w = httptest.NewRecorder()
+				req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
+				r.ServeHTTP(w, req)
+			})
+		}
+	}
+
+}
+
+func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range map[string]struct {
+			Id   string
+			Hash string
+		}{
+			"key1": {
+				Id: "1", Hash: "anson",
+			},
+			"key2": {
+				Id: "2", Hash: "anson",
+			},
+		} {
+			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
+					// 这里不会被触发
+					err := errors.New("Should not trigger this func")
+					assert.NoError(t, err)
+				})
+
+				r.GET("/pings", cache.Handler(
+					Caching{
+						Cacheable: []Cacheable{
+							{CacheName: "anson", Key: `userId:#id# hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+								// 这里会覆盖cache 实例的方法
+								assert.True(t, len(cacheValue) > 0)
+							}}},
+						},
+					},
+					func(c *gin.Context) {
+						id, _ := c.GetQuery("id")
+						hash, _ := c.GetQuery("hash")
+						c.JSON(200, gin.H{
+							"id":   id,
+							"hash": hash,
+						})
+					},
+				))
+
+				r.POST("/pings", cache.Handler(
+					Caching{
+						Evict: []CacheEvict{
+							{CacheName: []string{"anson"}, Key: "userId:#id#*"},
+						},
+					},
+					func(c *gin.Context) {
+						c.JSON(200, gin.H{
+							"message": "delete cache",
+						})
+					},
+				))
+
+				w := httptest.NewRecorder()
+				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/pings?id=%s&hash=%s", item.Id, item.Hash), nil)
+				r.ServeHTTP(w, req)
+
+				loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
+				assert.Equal(t, 200, w.Code)
+
+				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), loadCache)
+				assert.Equal(t, equalJSON && err == nil, true)
+
+				// test for cache hit hook
+				w = httptest.NewRecorder()
+				req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/pings?id=%s&hash=%s", item.Id, item.Hash), nil)
+				r.ServeHTTP(w, req)
 			})
 		}
 	}
@@ -159,7 +238,11 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.PUT("/ping", cache.Handler(
 					Caching{
 						Evict: []CacheEvict{
-							{CacheName: []string{"anson"}, Key: "hash*"},
+							{CacheName: []string{"anson"}, Key: "hash*", AfterEvict: CacheEvictHook{
+								func(c *gin.Context, cacheKeys []string) {
+									assert.True(t, len(cacheKeys) > 0)
+								},
+							}},
 						},
 					},
 					func(c *gin.Context) {
@@ -174,7 +257,10 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.DELETE("/pings", cache.Handler(
 					Caching{
 						Evict: []CacheEvict{
-							{CacheName: []string{"anson"}, Key: "name:#name#"},
+							{
+								CacheName: []string{"anson"},
+								Key:       "name:#name#",
+							},
 						},
 					},
 					func(c *gin.Context) {
@@ -199,8 +285,13 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 						})
 					},
 				))
+
 				w := httptest.NewRecorder()
-				req, _ := http.NewRequest(http.MethodDelete, "/pings", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
+				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/pings?hash=%s", item.Hash), nil)
+				r.ServeHTTP(w, req)
+
+				w = httptest.NewRecorder()
+				req, _ = http.NewRequest(http.MethodDelete, "/pings", strings.NewReader(fmt.Sprintf(`{"hash": "%s"}`, item.Hash)))
 				r.ServeHTTP(w, req)
 
 				equalJSON, _ := AreEqualJSON(fmt.Sprintf(`{"message": "12123"}`), w.Body.String())
@@ -243,7 +334,6 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 			})
 		}
 	}
-
 }
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
