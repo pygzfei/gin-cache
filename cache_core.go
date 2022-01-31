@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-redis/redis/v8"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -49,6 +50,8 @@ type Cache struct {
 	OnCacheHit   CacheHitHook // 命中缓存钩子 优先级低
 }
 
+var bodyBytesKey string = "bodyIO"
+
 // NewRedisCache init redis support
 func NewRedisCache(cacheTime time.Duration, options *redis.Options, onCacheHit ...func(c *gin.Context, cacheValue string)) (*Cache, error) {
 	if options == nil || cacheTime <= 0 {
@@ -89,7 +92,20 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 		}
 
 		if cacheString == "" {
+			if c.Request.Body != nil {
+				body, err := ioutil.ReadAll(c.Request.Body)
+				if err != nil {
+					fmt.Println(err)
+				}
+				c.Set(bodyBytesKey, body)
+				c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
+			}
 			next(c)
+			bodyStr, exists := c.Get(bodyBytesKey)
+			if exists {
+				c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
+			}
+
 		} else {
 			cache.doCacheHit(c, caching, cacheString)
 		}
@@ -130,6 +146,7 @@ func (cache *Cache) setCache(ctx context.Context, key string, data string) {
 func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvicts ...CacheEvict) {
 	keys := []string{}
 	json := make(map[string]interface{})
+
 	c.ShouldBindBodyWith(&json, binding.JSON)
 
 	compile, _ := regexp.Compile(`#(.*?)#`)

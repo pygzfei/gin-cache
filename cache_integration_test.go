@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -101,13 +100,15 @@ func Test_Cache_CanStore(t *testing.T) {
 				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
 				r.ServeHTTP(w, req)
 
-				loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
+				cacheKey := fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash)
+				loadCache := cache.loadCache(context.Background(), cacheKey)
 				assert.Equal(t, 200, w.Code)
 
-				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), loadCache)
+				sprintf := fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash)
+				equalJSON, err := AreEqualJSON(sprintf, loadCache)
 				assert.Equal(t, equalJSON && err == nil, true)
 
-				// test for cache hit hook
+				//test for cache hit hook
 				w = httptest.NewRecorder()
 				req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/ping?id=%s&hash=%s", item.Id, item.Hash), nil)
 				r.ServeHTTP(w, req)
@@ -243,7 +244,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 					},
 					func(c *gin.Context) {
 						json := make(map[string]interface{})
-						c.ShouldBindBodyWith(&json, binding.JSON)
+						c.BindJSON(&json)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
@@ -261,7 +262,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 					},
 					func(c *gin.Context) {
 						json := make(map[string]interface{})
-						c.ShouldBindBodyWith(&json, binding.JSON)
+						c.BindJSON(&json)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
