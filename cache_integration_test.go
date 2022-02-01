@@ -433,6 +433,65 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 	}
 }
 
+func Test_Put_Method_Should_Be_Evict(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range []struct {
+			Hash    string
+			doError bool
+		}{
+			{Hash: "hash111", doError: true},
+			{Hash: "hash222", doError: false},
+			{Hash: "hash333", doError: false},
+		} {
+			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.PUT("/pings", cache.Handler(
+					Caching{
+						Cacheable: []Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+								// 这里会覆盖cache 实例的方法
+								assert.True(t, len(cacheValue) > 0)
+							}}},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.BindJSON(&json)
+						c.JSON(200, gin.H{
+							"message": "12123",
+						})
+					},
+				))
+
+				w := httptest.NewRecorder()
+				var body string
+				if item.doError {
+					body = fmt.Sprintf(`{"hash1": "%s"`, item.Hash)
+				} else {
+					body = fmt.Sprintf(`{"hash": "%s"}`, item.Hash)
+				}
+				req, _ := http.NewRequest(http.MethodPut, "/pings", bytes.NewBufferString(body))
+				r.ServeHTTP(w, req)
+
+				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
+				cacheValue := cache.loadCache(context.Background(), sprintf)
+
+				if item.doError && runFor == MemoryCache {
+					assert.Equal(t, cacheValue, "")
+					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+					assert.False(t, equalJSON)
+				} else {
+					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+					assert.True(t, equalJSON)
+				}
+			})
+		}
+	}
+}
+
 func Test_Redis_Not_Option_Start_Up_Will_Fail(t *testing.T) {
 	cache, err := NewRedisCache(time.Second*1, nil)
 	assert.Error(t, err)

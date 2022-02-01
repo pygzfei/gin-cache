@@ -98,7 +98,9 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 					c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
 				}
 			}
+
 			next(c)
+
 			bodyStr, exists := c.Get(bodyBytesKey)
 			if exists {
 				c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
@@ -129,7 +131,7 @@ func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 					result[i] = query
 				}
 			}
-			if c.Request.Method == http.MethodPost {
+			if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
 				if c.Request.Body != nil {
 					body, err := ioutil.ReadAll(c.Request.Body)
 					if err != nil {
