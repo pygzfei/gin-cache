@@ -93,12 +93,10 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 
 		if cacheString == "" {
 			if c.Request.Body != nil {
-				body, err := ioutil.ReadAll(c.Request.Body)
-				if err != nil {
-					fmt.Println(err)
+				bodyStr, exists := c.Get(bodyBytesKey)
+				if exists {
+					c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
 				}
-				c.Set(bodyBytesKey, body)
-				c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
 			}
 			next(c)
 			bodyStr, exists := c.Get(bodyBytesKey)
@@ -126,8 +124,27 @@ func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	for i, item := range subMatch {
 		s := item[1]
 		if s != "" {
-			if query, b := c.GetQuery(s); b {
-				result[i] = query
+			if c.Request.Method == http.MethodGet {
+				if query, b := c.GetQuery(s); b {
+					result[i] = query
+				}
+			}
+			if c.Request.Method == http.MethodPost {
+				if c.Request.Body != nil {
+					body, err := ioutil.ReadAll(c.Request.Body)
+					if err != nil {
+						body = []byte("")
+					}
+					c.Set(bodyBytesKey, body)
+					c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
+				}
+				mapFromData := make(map[string]interface{})
+				err := c.ShouldBindBodyWith(&mapFromData, binding.JSON)
+				if err == nil {
+					result[i] = mapFromData[s]
+				} else {
+					result[i] = ""
+				}
 			}
 		}
 	}

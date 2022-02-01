@@ -1,6 +1,7 @@
 package gincache
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -330,6 +331,103 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 				time.Sleep(time.Second * 2)
 				loadCache := cache.loadCache(context.Background(), cacheKey)
 				assert.Equal(t, loadCache, "")
+			})
+		}
+	}
+}
+
+func Test_Post_Method_Should_Be_Cache(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range []struct {
+			Hash string
+		}{
+			{Hash: "hash111"},
+			{Hash: "hash222"},
+			{Hash: "hash333"},
+		} {
+			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.POST("/pings", cache.Handler(
+					Caching{
+						Cacheable: []Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+								// 这里会覆盖cache 实例的方法
+								assert.True(t, len(cacheValue) > 0)
+							}}},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.BindJSON(&json)
+						c.JSON(200, gin.H{
+							"message": "12123",
+						})
+					},
+				))
+
+				w := httptest.NewRecorder()
+				body := fmt.Sprintf(`{"hash": "%s"}`, item.Hash)
+				req, _ := http.NewRequest(http.MethodPost, "/pings", bytes.NewBufferString(body))
+				r.ServeHTTP(w, req)
+
+				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
+				cacheValue := cache.loadCache(context.Background(), sprintf)
+
+				equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+				assert.True(t, equalJSON)
+			})
+		}
+	}
+}
+
+func Test_Post_Method_Should_Be_Evict(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range []struct {
+			Hash string
+		}{
+			{Hash: "hash111"},
+			{Hash: "hash222"},
+			{Hash: "hash333"},
+		} {
+			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.POST("/pings", cache.Handler(
+					Caching{
+						Cacheable: []Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+								// 这里会覆盖cache 实例的方法
+								assert.True(t, len(cacheValue) > 0)
+							}}},
+						},
+						Evict: []CacheEvict{
+							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.BindJSON(&json)
+						c.JSON(200, gin.H{
+							"message": "12123",
+						})
+					},
+				))
+
+				w := httptest.NewRecorder()
+				body := fmt.Sprintf(`{"hash": "%s"}`, item.Hash)
+				req, _ := http.NewRequest(http.MethodPost, "/pings", bytes.NewBufferString(body))
+				r.ServeHTTP(w, req)
+
+				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
+				cacheValue := cache.loadCache(context.Background(), sprintf)
+
+				assert.Equal(t, cacheValue, "")
+
 			})
 		}
 	}
