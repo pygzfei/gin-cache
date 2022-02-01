@@ -433,7 +433,7 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 	}
 }
 
-func Test_Put_Method_Should_Be_Evict(t *testing.T) {
+func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
 
@@ -479,7 +479,7 @@ func Test_Put_Method_Should_Be_Evict(t *testing.T) {
 				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
 				cacheValue := cache.loadCache(context.Background(), sprintf)
 
-				if item.doError && runFor == MemoryCache {
+				if item.doError {
 					assert.Equal(t, cacheValue, "")
 					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
 					assert.False(t, equalJSON)
