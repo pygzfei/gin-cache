@@ -127,8 +127,10 @@ func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 		s := item[1]
 		if s != "" {
 			if c.Request.Method == http.MethodGet {
-				if query, b := c.GetQuery(s); b {
+				if query, ok := c.GetQuery(s); ok {
 					result[i] = query
+				} else if param := c.Param(s); param != "" {
+					result[i] = param
 				}
 			}
 			if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
