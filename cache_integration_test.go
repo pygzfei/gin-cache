@@ -93,6 +93,47 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	return r, cache
 }
 
+func Test_Path_Variable_Not_Variable_Can_Cache_CanStore(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range map[string]struct {
+			Id   string
+			Hash string
+		}{
+			"key1": {
+				Id: "1", Hash: "anson",
+			},
+			"key2": {
+				Id: "2", Hash: "anson",
+			},
+		} {
+			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
+					assert.True(t, len(cacheValue) > 0)
+				})
+
+				w := httptest.NewRecorder()
+				req, _ := http.NewRequest(http.MethodGet, "/ping", nil)
+				r.ServeHTTP(w, req)
+
+				cacheKey := "anson:userid:<nil> hash:<nil>"
+				loadCache := cache.loadCache(context.Background(), cacheKey)
+				assert.Equal(t, 200, w.Code)
+
+				sprintf := `{"hash":"","id":""}`
+				equalJSON, err := AreEqualJSON(sprintf, loadCache)
+				assert.Equal(t, equalJSON && err == nil, true)
+
+				//test for cache hit hook
+				w = httptest.NewRecorder()
+				req, _ = http.NewRequest(http.MethodGet, "/ping", nil)
+				r.ServeHTTP(w, req)
+			})
+		}
+	}
+}
+
 func Test_Path_Variable_Cache_CanStore(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
@@ -132,7 +173,6 @@ func Test_Path_Variable_Cache_CanStore(t *testing.T) {
 			})
 		}
 	}
-
 }
 
 func Test_Cache_CanStore(t *testing.T) {
