@@ -80,6 +80,15 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 		var key string
 		var cacheString string
 
+		if c.Request.Body != nil {
+			body, err := ioutil.ReadAll(c.Request.Body)
+			if err != nil {
+				body = []byte("")
+			}
+			c.Set(bodyBytesKey, body)
+			c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
+		}
+
 		if doCache {
 			// pointer 指向 writer, 重写 c.writer
 			c.Writer = &ResponseBodyWriter{
@@ -92,30 +101,27 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 		}
 
 		if cacheString == "" {
-			if c.Request.Body != nil {
-				bodyStr, exists := c.Get(bodyBytesKey)
-				if exists {
-					c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
-				}
-			}
+
+			refreshBodyData(c)
 
 			next(c)
 
-			bodyStr, exists := c.Get(bodyBytesKey)
-			if exists {
-				c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
-			}
+			refreshBodyData(c)
 
 		} else {
 			cache.doCacheHit(c, caching, cacheString)
 		}
-		if doCache && cacheString == "" {
-			s := c.Writer.(*ResponseBodyWriter).body.String()
-			cache.setCache(ctx, key, s)
-		}
 		if doEvict {
+			refreshBodyData(c)
 			cache.doCacheEvict(ctx, c, caching.Evict...)
 		}
+		if doCache {
+			if cacheString = cache.loadCache(ctx, key); cacheString == "" {
+				s := c.Writer.(*ResponseBodyWriter).body.String()
+				cache.setCache(ctx, key, s)
+			}
+		}
+
 	}
 }
 
@@ -136,14 +142,6 @@ func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 				}
 			}
 			if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
-				if c.Request.Body != nil {
-					body, err := ioutil.ReadAll(c.Request.Body)
-					if err != nil {
-						body = []byte("")
-					}
-					c.Set(bodyBytesKey, body)
-					c.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
-				}
 				mapFromData := make(map[string]interface{})
 				err := c.ShouldBindBodyWith(&mapFromData, binding.JSON)
 				if err == nil {
@@ -215,4 +213,13 @@ func (cache *Cache) doCacheHit(ctx *gin.Context, caching Caching, cacheValue str
 	ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 	ctx.String(http.StatusOK, cacheValue)
 	ctx.Abort()
+}
+
+func refreshBodyData(c *gin.Context) {
+	if c.Request.Body != nil {
+		bodyStr, exists := c.Get(bodyBytesKey)
+		if exists {
+			c.Request.Body = ioutil.NopCloser(bytes.NewReader(bodyStr.([]byte)))
+		}
+	}
 }

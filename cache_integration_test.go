@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -437,13 +438,13 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
-
+		rand.Seed(time.Now().Unix() + 1)
 		for _, item := range []struct {
 			Hash string
 		}{
-			{Hash: "hash111"},
-			{Hash: "hash222"},
-			{Hash: "hash333"},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
 		} {
 			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
@@ -481,16 +482,17 @@ func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 	}
 }
 
-func Test_Post_Method_Should_Be_Evict(t *testing.T) {
+func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+		rand.Seed(time.Now().Unix() + 2)
 
 		for _, item := range []struct {
 			Hash string
 		}{
-			{Hash: "hash111"},
-			{Hash: "hash222"},
-			{Hash: "hash333"},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
 		} {
 			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
@@ -498,10 +500,7 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 				r.POST("/pings", cache.Handler(
 					Caching{
 						Cacheable: []Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
-								// 这里会覆盖cache 实例的方法
-								assert.True(t, len(cacheValue) > 0)
-							}}},
+							{CacheName: "anson", Key: `hash:#hash#`},
 						},
 						Evict: []CacheEvict{
 							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
@@ -510,19 +509,81 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 					func(c *gin.Context) {
 						json := make(map[string]interface{})
 						c.BindJSON(&json)
-						c.JSON(200, gin.H{
-							"message": "12123",
-						})
+						c.JSON(200, json)
 					},
 				))
 
 				w := httptest.NewRecorder()
-				body := fmt.Sprintf(`{"hash": "%s"}`, item.Hash)
+				body := fmt.Sprintf(`{"hash":"%s"}`, item.Hash)
 				req, _ := http.NewRequest(http.MethodPost, "/pings", bytes.NewBufferString(body))
 				r.ServeHTTP(w, req)
 
 				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
 				cacheValue := cache.loadCache(context.Background(), sprintf)
+				equalJSON, _ := AreEqualJSON(cacheValue, body)
+				assert.True(t, equalJSON)
+
+			})
+		}
+	}
+}
+
+func Test_Post_Method_Should_Be_Evict(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+		rand.Seed(time.Now().Unix() + 2)
+
+		for _, item := range []struct {
+			Hash string
+		}{
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+		} {
+			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.GET("/ping_for_get", cache.Handler(
+					Caching{
+						Cacheable: []Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+								// 这里会覆盖cache 实例的方法
+								assert.True(t, len(cacheValue) > 0)
+							}}},
+						},
+					},
+					func(c *gin.Context) {
+						query, _ := c.GetQuery("hash")
+						c.JSON(200, query)
+					},
+				))
+
+				r.POST("/ping_for_post", cache.Handler(
+					Caching{
+						Evict: []CacheEvict{
+							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.BindJSON(&json)
+						c.JSON(200, json)
+					},
+				))
+
+				w := httptest.NewRecorder()
+				req, _ := http.NewRequest(http.MethodGet, "/ping_for_get?hash="+item.Hash, nil)
+				r.ServeHTTP(w, req)
+
+				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
+				cacheValue := cache.loadCache(context.Background(), sprintf)
+
+				w = httptest.NewRecorder()
+				body := fmt.Sprintf(`{"hash":"%s"}`, item.Hash)
+				req, _ = http.NewRequest(http.MethodPost, "/ping_for_post", bytes.NewBufferString(body))
+				r.ServeHTTP(w, req)
+
+				cacheValue = cache.loadCache(context.Background(), sprintf)
 
 				assert.Equal(t, cacheValue, "")
 
@@ -534,14 +595,14 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
-
+		rand.Seed(time.Now().Unix() + 3)
 		for _, item := range []struct {
 			Hash    string
 			doError bool
 		}{
-			{Hash: "hash111", doError: true},
-			{Hash: "hash222", doError: false},
-			{Hash: "hash333", doError: false},
+			{Hash: fmt.Sprintf("hash%v", rand.Int()), doError: true},
+			{Hash: fmt.Sprintf("hash%v", rand.Int()), doError: false},
+			{Hash: fmt.Sprintf("hash%v", rand.Int()), doError: false},
 		} {
 			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
@@ -586,6 +647,46 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 					assert.True(t, equalJSON)
 				}
 			})
+		}
+	}
+}
+
+func Test_All_Cache_Evict(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range []struct {
+			Id   string
+			Hash string
+		}{
+			{Id: "10", Hash: "anson"},
+		} {
+			t.Run(fmt.Sprintf(`can cache %s  %s`, item.Id, item.Hash), func(t *testing.T) {
+
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.POST("/ping_for_post", cache.Handler(
+					Caching{
+						Evict: []CacheEvict{
+							{CacheName: []string{"anson"}, Key: `*`},
+						},
+					},
+					func(c *gin.Context) {
+						json := make(map[string]interface{})
+						c.BindJSON(&json)
+						c.JSON(200, json)
+					},
+				))
+
+				w := httptest.NewRecorder()
+				req, _ := http.NewRequest(http.MethodPost, "/ping_for_post", strings.NewReader(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash)))
+				r.ServeHTTP(w, req)
+
+				loadCache := cache.loadCache(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
+
+				assert.Equal(t, loadCache, "")
+			})
+
 		}
 	}
 }

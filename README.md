@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	cache := NewMemoryCache(
+	cache, _ := NewMemoryCache(
 		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 	)
 	r := gin.Default()
@@ -76,7 +76,7 @@ r.POST("/ping", cache.Handler(
 
 ## Use Redis
 ```
-cache := NewRedisCache(time.Second*30, &redis.Options{
+cache, _ := NewRedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
     Password: "",
     DB:       0,
@@ -93,14 +93,14 @@ ctx.Abort()
 ````
 可以使用全局的Hook拦截返回信息
 ```
-cache := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
     // 被缓存的值, 可以在全局拦截
 })
 
 ```
 也可以使用独立的Hook去拦截某个消息返回
 ```
-cache := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
     // 这里不会被执行
 })
 
