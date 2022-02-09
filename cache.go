@@ -27,7 +27,7 @@ type CacheHitHook []func(c *gin.Context, cacheValue string)
 type Cacheable struct {
 	CacheName  string
 	Key        string
-	onCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
+	OnCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
 }
 
 // CacheEvict do Evict
@@ -192,8 +192,8 @@ func (cache *CacheHandler) doCacheEvict(ctx context.Context, c *gin.Context, cac
 
 func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, cacheValue string) {
 
-	if len(caching.Cacheable[0].onCacheHit) > 0 {
-		caching.Cacheable[0].onCacheHit[0](ctx, cacheValue)
+	if len(caching.Cacheable[0].OnCacheHit) > 0 {
+		caching.Cacheable[0].OnCacheHit[0](ctx, cacheValue)
 		ctx.Abort()
 		return
 	}
