@@ -3,20 +3,17 @@
 [![codecov](https://codecov.io/gh/pygzfei/gin-cache/branch/main/graph/badge.svg)](https://codecov.io/gh/pygzfei/gin-cache)
 
 ## Gin cache middleware
-Easy use of caching with Gin Handler Func
+以 Gin Handler Func 方式轻松使用缓存
 
-## [中文](/README_CN.md)
-
-## Driver
+## 驱动
 - [x] memory
 - [x] redis
 - [ ] more...
-
-## Install
+## 安装
 ```
 go get -u github.com/pygzfei/gin-cache
 ```
-## Quick start
+## 快速开始
 ```
 package main
 
@@ -29,20 +26,20 @@ import (
 func main() {
 
 	cache, _ := gincache.NewMemoryCache(
-		time.Minute * 30, // The survival time of each cache is 30 minutes, and different key values will have different expiration times, which do not affect each other.
+		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 	)
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
 		gincache.Caching{
 			Cacheable: []gincache.Cacheable{
-				// #id# is the request data, from query or post data, for example: `/?id=1`, the cache will be generated as: `anson:userid:1`
+				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
 				{CacheName: "anson", Key: `id:#id#`},
 			},
 		},
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"message": "pong", // The returned data will be cached
+				"message": "pong", // 返回数据将会被缓存
 			})
 		},
 	))
@@ -51,14 +48,14 @@ func main() {
 }
 ```
 
-## Trigger Cache evict
+## 触发缓存驱逐
 ```
 // Post Body Json: {"id": 1}
-// The cache key value that will trigger invalidation is: `anson:userid:1`
+// 将会触发失效的缓存Key值为: `anson:userid:1`
 r.POST("/ping", cache.Handler(
     Caching{
         Evict: []CacheEvict{
-            // #id# Get `{"id": 1}` from Post Body Json
+            // #id# 从Post Body Json获取 `{"id": 1}`
             {CacheName: []string{"anson"}, Key: "id:#id#"},
         },
     },
@@ -67,9 +64,9 @@ r.POST("/ping", cache.Handler(
     },
 ))
 
-// Wildcards '*' can also be used, e.g. 'anson:id:1*'
-// If this data exists in the cache list: ["anson:id:1", "anson:id:12", "anson:id:3"]
-// Then the cached data starting with `anson:id:1` will be deleted, and the cache list will remain: ["anson:id:3"]
+// 也可以使用通配符 '*', 例如 'anson:id:1*'
+// 如果缓存列表里面存在这些数据: ["anson:id:1", "anson:id:12", "anson:id:3"]
+// 那么 `anson:id:1` 开头的缓存数据, 将会被删除, 缓存列表将剩余: ["anson:id:3"]
 r.POST("/ping", cache.Handler(
     Caching{
         Evict: []CacheEvict{
@@ -83,7 +80,7 @@ r.POST("/ping", cache.Handler(
 ))
 ```
 
-## Use Redis
+## 使用Redis
 ```
 cache, _ := NewRedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
@@ -94,23 +91,23 @@ cache, _ := NewRedisCache(time.Second*30, &redis.Options{
 ```
 
 ## Hooks
-cache instance, returns "application/json; Charset=utf-8" by default
+缓存实例, 默认返回"application/json; Charset=utf-8", 类似的代码如下:
 ```
 ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 ctx.String(http.StatusOK, cacheValue)
 ctx.Abort()
 ````
-also, can use the global Hook to intercept the return information
+可以使用全局的Hook拦截返回信息
 ```
 cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
-    // cached value, which can be intercepted globally
+    // 被缓存的值, 可以在全局拦截
 })
 
 ```
-also, use a separate Hook to intercept a message return
+也可以使用独立的Hook去拦截某个消息返回
 ```
 cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
-    // will not be executed here
+    // 这里不会被执行
 })
 
 r.GET("/pings", cache.Handler(
@@ -118,7 +115,7 @@ r.GET("/pings", cache.Handler(
         Cacheable: []Cacheable{
             {CacheName: "anson", Key: `userId:#id# hash:#hash#`,
              onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
-                // this will override the global interception of the cache
+                // 这里会覆盖cache的全局拦截
                 assert.True(t, len(cacheValue) > 0)
             }}},
         },
@@ -128,6 +125,3 @@ r.GET("/pings", cache.Handler(
     },
 ))
 ```
-
-## Rules
-    ...
