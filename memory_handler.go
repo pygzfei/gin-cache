@@ -43,6 +43,7 @@ func (m *memoryHandler) LoadCache(_ context.Context, key string) string {
 
 func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 	mux.Lock()
+	defer mux.Unlock()
 	m.cacheStore.Store(key, data)
 	// timeout
 	schedule := Schedule{Key: key, Timer: time.NewTimer(m.cacheTime)}
@@ -53,11 +54,12 @@ func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 			m.DoCacheEvict(ctx, []string{s.Key})
 		}
 	}(&schedule)
-	defer mux.Unlock()
+
 }
 
 func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 	mux.Lock()
+	defer mux.Unlock()
 	evictKeys := []string{}
 	for _, key := range keys {
 		isEndingStar := key[len(key)-1:]
@@ -83,5 +85,5 @@ func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 		}
 		delete(m.schedules, key)
 	}
-	defer mux.Unlock()
+
 }
