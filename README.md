@@ -23,32 +23,34 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache"
+	"github.com/pygzfei/gin-cache/driver/memcache"
 	"time"
 )
 
 func main() {
 
-	cache, _ := gincache.NewMemoryCache(
-		time.Minute * 30, // The survival time of each cache is 30 minutes, and different key values will have different expiration times, which do not affect each other.
+	cache, _ := memcache.NewCacheHandler(
+		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 	)
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
 		gincache.Caching{
 			Cacheable: []gincache.Cacheable{
-				// #id# is the request data, from query or post data, for example: `/?id=1`, the cache will be generated as: `anson:userid:1`
+				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
 				{CacheName: "anson", Key: `id:#id#`},
 			},
 		},
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"message": "pong", // The returned data will be cached
+				"message": "pong", // 返回数据将会被缓存
 			})
 		},
 	))
 
 	r.Run()
 }
+
 ```
 
 ## Trigger Cache evict

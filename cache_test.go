@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/pygzfei/gin-cache/drivers/memcache"
+	rediscache "github.com/pygzfei/gin-cache/drivers/redis"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"net/http"
@@ -25,13 +27,13 @@ const (
 	RedisCache  RunFor = 1
 )
 
-func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func(c *gin.Context, cacheValue string)) (*gin.Engine, *Cache) {
-	var cache *Cache
+func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func(c *gin.Context, cacheValue string)) (*gin.Engine, *CacheHandler) {
+	var cache *CacheHandler
 
 	if runFor == MemoryCache {
-		cache, _ = NewMemoryCache(timeout, onHit...)
+		cache, _ = memcache.NewCacheHandler(timeout, onHit...)
 	} else if runFor == RedisCache {
-		cache, _ = NewRedisCache(
+		cache, _ = rediscache.NewCacheHandler(
 			timeout,
 			&redis.Options{
 				Addr:     "localhost:6379",
@@ -236,7 +238,7 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
 					// 这里不会被触发
-					err := errors.New("Should not trigger this func")
+					err := errors.New("should not trigger this func")
 					assert.NoError(t, err)
 				})
 
@@ -689,15 +691,6 @@ func Test_All_Cache_Evict(t *testing.T) {
 
 		}
 	}
-}
-
-func Test_Redis_Not_Option_Start_Up_Will_Fail(t *testing.T) {
-	cache, err := NewRedisCache(time.Second*1, nil)
-	assert.Error(t, err)
-	assert.Nil(t, cache)
-	cache, err = NewMemoryCache(time.Second*-1, nil)
-	assert.Error(t, err)
-	assert.Nil(t, cache)
 }
 
 func AreEqualJSON(s1, s2 string) (bool, error) {
