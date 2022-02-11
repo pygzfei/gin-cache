@@ -3,23 +3,21 @@ package gincache
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	"github.com/go-redis/redis/v8"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 )
 
-// ICacheAction : memoryHandler and redisHandler implement
-type ICacheAction interface {
-	LoadCache(ctx context.Context, key string) string
-	SetCache(ctx context.Context, key string, data string)
-	DoCacheEvict(ctx context.Context, keys []string)
+var bodyBytesKey = "bodyIO"
+
+type Cache interface {
+	Load(ctx context.Context, key string) string
+	Set(ctx context.Context, key string, data string)
+	DoEvict(ctx context.Context, keys []string)
 }
 
 // CacheHitHook cache on hit hook
@@ -29,7 +27,7 @@ type CacheHitHook []func(c *gin.Context, cacheValue string)
 type Cacheable struct {
 	CacheName  string
 	Key        string
-	onCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
+	OnCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
 }
 
 // CacheEvict do Evict
@@ -44,32 +42,29 @@ type Caching struct {
 	Evict     []CacheEvict
 }
 
-// Cache handler
-type Cache struct {
-	CacheHandler ICacheAction
-	OnCacheHit   CacheHitHook // 命中缓存钩子 优先级低
+type CacheHandler struct {
+	Cache      Cache
+	OnCacheHit CacheHitHook // 命中缓存钩子 优先级低
 }
 
-var bodyBytesKey string = "bodyIO"
-
-// NewRedisCache init redis support
-func NewRedisCache(cacheTime time.Duration, options *redis.Options, onCacheHit ...func(c *gin.Context, cacheValue string)) (*Cache, error) {
-	if options == nil || cacheTime <= 0 {
-		return nil, errors.New("option can not be nil or CacheTime greater than 0")
-	}
-	return &Cache{NewRedisHandler(redis.NewClient(options), cacheTime), onCacheHit}, nil
+func (cache *CacheHandler) Load(ctx context.Context, key string) string {
+	return cache.Cache.Load(ctx, key)
 }
 
-// NewMemoryCache init memory support
-func NewMemoryCache(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) (*Cache, error) {
-	if cacheTime <= 0 {
-		return nil, errors.New("CacheTime greater than 0")
-	}
-	return &Cache{NewMemoryHandler(cacheTime), onCacheHit}, nil
+func (cache *CacheHandler) Set(ctx context.Context, key string, data string) {
+	cache.Cache.Set(ctx, key, data)
+}
+
+func (cache *CacheHandler) DoEvict(ctx context.Context, keys []string) {
+	cache.Cache.DoEvict(ctx, keys)
+}
+
+func New(c Cache, onCacheHit ...func(c *gin.Context, cacheValue string)) *CacheHandler {
+	return &CacheHandler{c, onCacheHit}
 }
 
 // Handler for cache
-func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFunc {
+func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 
@@ -125,7 +120,7 @@ func (cache *Cache) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFu
 	}
 }
 
-func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
+func (cache *CacheHandler) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	compile, _ := regexp.Compile(`#(.*?)#`)
 	subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
 	result := make([]interface{}, len(subMatch))
@@ -156,19 +151,19 @@ func (cache *Cache) getCacheKey(cacheable Cacheable, c *gin.Context) string {
 	return strings.ToLower(fmt.Sprintf(cacheable.CacheName+":"+replaceAllString, result...))
 }
 
-func (cache *Cache) loadCache(ctx context.Context, key string) string {
-	return cache.CacheHandler.LoadCache(ctx, key)
+func (cache *CacheHandler) loadCache(ctx context.Context, key string) string {
+	return cache.Cache.Load(ctx, key)
 }
 
-func (cache *Cache) setCache(ctx context.Context, key string, data string) {
-	cache.CacheHandler.SetCache(ctx, key, data)
+func (cache *CacheHandler) setCache(ctx context.Context, key string, data string) {
+	cache.Cache.Set(ctx, key, data)
 }
 
-func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvicts ...CacheEvict) {
-	keys := []string{}
+func (cache *CacheHandler) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvicts ...CacheEvict) {
+	keys := make([]string, 0)
 	json := make(map[string]interface{})
 
-	c.ShouldBindBodyWith(&json, binding.JSON)
+	_ = c.ShouldBindBodyWith(&json, binding.JSON)
 
 	compile, _ := regexp.Compile(`#(.*?)#`)
 	for _, evict := range cacheEvicts {
@@ -191,14 +186,14 @@ func (cache *Cache) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvict
 		}
 	}
 	if len(keys) > 0 {
-		cache.CacheHandler.DoCacheEvict(ctx, keys)
+		cache.Cache.DoEvict(ctx, keys)
 	}
 }
 
-func (cache *Cache) doCacheHit(ctx *gin.Context, caching Caching, cacheValue string) {
+func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, cacheValue string) {
 
-	if len(caching.Cacheable[0].onCacheHit) > 0 {
-		caching.Cacheable[0].onCacheHit[0](ctx, cacheValue)
+	if len(caching.Cacheable[0].OnCacheHit) > 0 {
+		caching.Cacheable[0].OnCacheHit[0](ctx, cacheValue)
 		ctx.Abort()
 		return
 	}

@@ -1,7 +1,10 @@
-package gincache
+package memcache
 
 import (
 	"context"
+	"errors"
+	"github.com/gin-gonic/gin"
+	gincache "github.com/pygzfei/gin-cache"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +36,7 @@ func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	}
 }
 
-func (m *memoryHandler) LoadCache(_ context.Context, key string) string {
+func (m *memoryHandler) Load(_ context.Context, key string) string {
 	load, ok := m.cacheStore.Load(key)
 	if ok {
 		return load.(string)
@@ -41,7 +44,7 @@ func (m *memoryHandler) LoadCache(_ context.Context, key string) string {
 	return ""
 }
 
-func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
+func (m *memoryHandler) Set(ctx context.Context, key string, data string) {
 	mux.Lock()
 	defer mux.Unlock()
 	m.cacheStore.Store(key, data)
@@ -51,13 +54,13 @@ func (m *memoryHandler) SetCache(ctx context.Context, key string, data string) {
 	go func(s *Schedule) {
 		select {
 		case <-s.Timer.C:
-			m.DoCacheEvict(ctx, []string{s.Key})
+			m.DoEvict(ctx, []string{s.Key})
 		}
 	}(&schedule)
 
 }
 
-func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
+func (m *memoryHandler) DoEvict(_ context.Context, keys []string) {
 	mux.Lock()
 	defer mux.Unlock()
 	evictKeys := []string{}
@@ -86,4 +89,12 @@ func (m *memoryHandler) DoCacheEvict(_ context.Context, keys []string) {
 		delete(m.schedules, key)
 	}
 
+}
+
+// NewCacheHandler NewMemoryCache init memory support
+func NewCacheHandler(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) (*gincache.CacheHandler, error) {
+	if cacheTime <= 0 {
+		return nil, errors.New("CacheTime greater than 0")
+	}
+	return gincache.New(NewMemoryHandler(cacheTime), onCacheHit...), nil
 }
