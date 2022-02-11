@@ -20,6 +20,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
+    "github.com/pygzfei/gin-cache/pkg/define"
 	"time"
 )
 
@@ -31,8 +32,8 @@ func main() {
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
-		gincache.Caching{
-			Cacheable: []gincache.Cacheable{
+		define.Caching{
+			Cacheable: []define.Cacheable{
 				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
 				{CacheName: "anson", Key: `id:#id#`},
 			},
@@ -54,8 +55,8 @@ func main() {
 // Post Body Json: {"id": 1}
 // 将会触发失效的缓存Key值为: `anson:userid:1`
 r.POST("/ping", cache.Handler(
-    Caching{
-        Evict: []CacheEvict{
+    define.Caching{
+        Evict: []define.CacheEvict{
             // #id# 从Post Body Json获取 `{"id": 1}`
             {CacheName: []string{"anson"}, Key: "id:#id#"},
         },
@@ -69,8 +70,8 @@ r.POST("/ping", cache.Handler(
 // 如果缓存列表里面存在这些数据: ["anson:id:1", "anson:id:12", "anson:id:3"]
 // 那么 `anson:id:1` 开头的缓存数据, 将会被删除, 缓存列表将剩余: ["anson:id:3"]
 r.POST("/ping", cache.Handler(
-    Caching{
-        Evict: []CacheEvict{
+    define.Caching{
+        Evict: []define.CacheEvict{
             // #id# 从Post Body Json获取 `{"id": 1}`
             {CacheName: []string{"anson"}, Key: "id:#id#*"},
         },
@@ -112,8 +113,8 @@ cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
 })
 
 r.GET("/pings", cache.Handler(
-    Caching{
-        Cacheable: []Cacheable{
+    define.Caching{
+        Cacheable: []define.Cacheable{
             {CacheName: "anson", Key: `userId:#id# hash:#hash#`,
              onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // 这里会覆盖cache的全局拦截

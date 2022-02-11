@@ -1,4 +1,4 @@
-package custom
+package define
 
 import "github.com/gin-gonic/gin"
 

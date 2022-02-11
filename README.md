@@ -3,26 +3,32 @@
 [![codecov](https://codecov.io/gh/pygzfei/gin-cache/branch/main/graph/badge.svg)](https://codecov.io/gh/pygzfei/gin-cache)
 
 ## Gin cache middleware
+
 Easy use of caching with Gin Handler Func
 
 ## [中文](/README_CN.md)
 
 ## Driver
+
 - [x] memory
 - [x] redis
 - [ ] more...
 
 ## Install
+
 ```
 go get -u github.com/pygzfei/gin-cache
 ```
+
 ## Quick start
+
 ```
 package main
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
+    "github.com/pygzfei/gin-cache/pkg/define"
 	"time"
 )
 
@@ -36,8 +42,8 @@ func main() {
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
-		gincache.Caching{
-			Cacheable: []gincache.Cacheable{
+		define.Caching{
+			Cacheable: []define.Cacheable{
 				// #id# is the request data from query or post data, for example: 
 				// http://domain/?id=1, the cache will be generated as: ` Anson: userid: 1`
 				{CacheName: "anson", Key: `id:#id#`},
@@ -56,12 +62,13 @@ func main() {
 ```
 
 ## Trigger Cache evict
+
 ```
 // Post Body Json: {"id": 1}
 // The cache key value that will trigger invalidation is: `anson:userid:1`
 r.POST("/ping", cache.Handler(
-    Caching{
-        Evict: []CacheEvict{
+    define.Caching{
+        Evict: []define.CacheEvict{
             // #id# Get `{"id": 1}` from Post Body Json
             {CacheName: []string{"anson"}, Key: "id:#id#"},
         },
@@ -75,8 +82,8 @@ r.POST("/ping", cache.Handler(
 // If this data exists in the cache list: ["anson:id:1", "anson:id:12", "anson:id:3"]
 // Then the cached data starting with `anson:id:1` will be deleted, and the cache list will remain: ["anson:id:3"]
 r.POST("/ping", cache.Handler(
-    Caching{
-        Evict: []CacheEvict{
+    define.Caching{
+        Evict: []define.CacheEvict{
             // #id# 从Post Body Json获取 `{"id": 1}`
             {CacheName: []string{"anson"}, Key: "id:#id#*"},
         },
@@ -88,6 +95,7 @@ r.POST("/ping", cache.Handler(
 ```
 
 ## Use Redis
+
 ```
 cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
@@ -98,30 +106,36 @@ cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
 ```
 
 ## Hooks
+
 cache instance, returns "application/json; Charset=utf-8" by default
+
 ```
 ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 ctx.String(http.StatusOK, cacheValue)
 ctx.Abort()
 ````
+
 also, can use the global Hook to intercept the return information
+
 ```
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // cached value, which can be intercepted globally
 })
 
 ```
+
 also, use a separate Hook to intercept a message return
+
 ```
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // will not be executed here
 })
 
 r.GET("/pings", cache.Handler(
-    Caching{
-        Cacheable: []Cacheable{
+    define.Caching{
+        Cacheable: []define.Cacheable{
             {CacheName: "anson", Key: `userId:#id# hash:#hash#`,
-             onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
+             onCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // this will override the global interception of the cache
                 assert.True(t, len(cacheValue) > 0)
             }}},
@@ -134,4 +148,5 @@ r.GET("/pings", cache.Handler(
 ```
 
 ## Rules
+
     ...

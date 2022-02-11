@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
-	. "github.com/pygzfei/gin-cache/pkg/custom"
+	. "github.com/pygzfei/gin-cache/pkg/define"
 	"io/ioutil"
 	"net/http"
 	"regexp"

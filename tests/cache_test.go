@@ -10,7 +10,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/pygzfei/gin-cache/cmd/startup"
 	"github.com/pygzfei/gin-cache/internal"
-	"github.com/pygzfei/gin-cache/pkg/custom"
+	"github.com/pygzfei/gin-cache/pkg/define"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"net/http"
@@ -50,8 +50,8 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
-		custom.Caching{
-			Cacheable: []custom.Cacheable{
+		define.Caching{
+			Cacheable: []define.Cacheable{
 				{CacheName: "anson", Key: `userId:#id# hash:#hash#`},
 			},
 		},
@@ -66,8 +66,8 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	))
 
 	r.GET("/ping/:id/:hash", cache.Handler(
-		custom.Caching{
-			Cacheable: []custom.Cacheable{
+		define.Caching{
+			Cacheable: []define.Cacheable{
 				{CacheName: "anson", Key: `userId:#id# hash:#hash#`},
 			},
 		},
@@ -82,8 +82,8 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	))
 
 	r.POST("/ping", cache.Handler(
-		custom.Caching{
-			Evict: []custom.CacheEvict{
+		define.Caching{
+			Evict: []define.CacheEvict{
 				{CacheName: []string{"anson"}, Key: "userId:#id#*"},
 			},
 		},
@@ -244,9 +244,9 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 				})
 
 				r.GET("/pings", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
-							{CacheName: "anson", Key: `userId:#id# hash:#hash#`, OnCacheHit: custom.CacheHitHook{func(c *gin.Context, cacheValue string) {
+					define.Caching{
+						Cacheable: []define.Cacheable{
+							{CacheName: "anson", Key: `userId:#id# hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -263,8 +263,8 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 				))
 
 				r.POST("/pings", cache.Handler(
-					custom.Caching{
-						Evict: []custom.CacheEvict{
+					define.Caching{
+						Evict: []define.CacheEvict{
 							{CacheName: []string{"anson"}, Key: "userId:#id#*"},
 						},
 					},
@@ -340,8 +340,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.PUT("/ping", cache.Handler(
-					custom.Caching{
-						Evict: []custom.CacheEvict{
+					define.Caching{
+						Evict: []define.CacheEvict{
 							{CacheName: []string{"anson"}, Key: "hash*"},
 						},
 					},
@@ -355,8 +355,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				))
 
 				r.DELETE("/pings", cache.Handler(
-					custom.Caching{
-						Evict: []custom.CacheEvict{
+					define.Caching{
+						Evict: []define.CacheEvict{
 							{
 								CacheName: []string{"anson"},
 								Key:       "name:#name#",
@@ -373,8 +373,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				))
 
 				r.GET("/pings", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
+					define.Caching{
+						Cacheable: []define.Cacheable{
 							{CacheName: "anson", Key: `hash:#hash#`},
 						},
 					},
@@ -453,9 +453,9 @@ func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.POST("/pings", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: custom.CacheHitHook{func(c *gin.Context, cacheValue string) {
+					define.Caching{
+						Cacheable: []define.Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -501,11 +501,11 @@ func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) 
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.POST("/pings", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
+					define.Caching{
+						Cacheable: []define.Cacheable{
 							{CacheName: "anson", Key: `hash:#hash#`},
 						},
-						Evict: []custom.CacheEvict{
+						Evict: []define.CacheEvict{
 							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
 						},
 					},
@@ -547,9 +547,9 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.GET("/ping_for_get", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: custom.CacheHitHook{func(c *gin.Context, cacheValue string) {
+					define.Caching{
+						Cacheable: []define.Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -562,8 +562,8 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 				))
 
 				r.POST("/ping_for_post", cache.Handler(
-					custom.Caching{
-						Evict: []custom.CacheEvict{
+					define.Caching{
+						Evict: []define.CacheEvict{
 							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
 						},
 					},
@@ -611,9 +611,9 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.PUT("/pings", cache.Handler(
-					custom.Caching{
-						Cacheable: []custom.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: custom.CacheHitHook{func(c *gin.Context, cacheValue string) {
+					define.Caching{
+						Cacheable: []define.Cacheable{
+							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -669,8 +669,8 @@ func Test_All_Cache_Evict(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
 
 				r.POST("/ping_for_post", cache.Handler(
-					custom.Caching{
-						Evict: []custom.CacheEvict{
+					define.Caching{
+						Evict: []define.CacheEvict{
 							{CacheName: []string{"anson"}, Key: `*`},
 						},
 					},
