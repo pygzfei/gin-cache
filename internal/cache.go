@@ -1,4 +1,4 @@
-package gincache
+package internal
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ type Cache interface {
 	DoEvict(ctx context.Context, keys []string)
 }
 
-// CacheHitHook cache on hit hook
+// CacheHitHook startup on hit hook
 type CacheHitHook []func(c *gin.Context, cacheValue string)
 
 // Cacheable do caching
@@ -63,7 +63,7 @@ func New(c Cache, onCacheHit ...func(c *gin.Context, cacheValue string)) *CacheH
 	return &CacheHandler{c, onCacheHit}
 }
 
-// Handler for cache
+// Handler for startup
 func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
@@ -204,7 +204,7 @@ func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, cacheVa
 		return
 	}
 
-	// default hit cache
+	// default hit startup
 	ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 	ctx.String(http.StatusOK, cacheValue)
 	ctx.Abort()
