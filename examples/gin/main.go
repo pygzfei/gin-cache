@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
-	"github.com/pygzfei/gin-cache/internal"
+	"github.com/pygzfei/gin-cache/pkg/custom"
 	"time"
 )
 
@@ -15,8 +15,8 @@ func main() {
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
-		internal.Caching{
-			Cacheable: []internal.Cacheable{
+		custom.Caching{
+			Cacheable: []custom.Cacheable{
 				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
 				{CacheName: "anson", Key: `id:#id#`},
 			},

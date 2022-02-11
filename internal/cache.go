@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	. "github.com/pygzfei/gin-cache/pkg/custom"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -18,28 +19,6 @@ type Cache interface {
 	Load(ctx context.Context, key string) string
 	Set(ctx context.Context, key string, data string)
 	DoEvict(ctx context.Context, keys []string)
-}
-
-// CacheHitHook startup on hit hook
-type CacheHitHook []func(c *gin.Context, cacheValue string)
-
-// Cacheable do caching
-type Cacheable struct {
-	CacheName  string
-	Key        string
-	OnCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
-}
-
-// CacheEvict do Evict
-type CacheEvict struct {
-	CacheName []string
-	Key       string
-}
-
-// Caching mixins Cacheable and CacheEvict
-type Caching struct {
-	Cacheable []Cacheable
-	Evict     []CacheEvict
 }
 
 type CacheHandler struct {
