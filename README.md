@@ -22,28 +22,30 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pygzfei/gin-cache"
-	"github.com/pygzfei/gin-cache/driver/memcache"
+	"github.com/pygzfei/gin-cache/cmd/startup"
 	"time"
 )
 
 func main() {
 
-	cache, _ := memcache.NewCacheHandler(
-		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
+	cache, _ := startup.MemCache(
+	// The survival time of each cache is 30 minutes. 
+	//Different key values have different expiration times and do not affect each other
+		time.Minute * 30, 
 	)
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
 		gincache.Caching{
 			Cacheable: []gincache.Cacheable{
-				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
+				// #id# is the request data from query or post data, for example: 
+				// http://domain/?id=1, the cache will be generated as: ` Anson: userid: 1`
 				{CacheName: "anson", Key: `id:#id#`},
 			},
 		},
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"message": "pong", // 返回数据将会被缓存
+				"message": "pong", // The returned data will be cached
 			})
 		},
 	))
@@ -87,7 +89,7 @@ r.POST("/ping", cache.Handler(
 
 ## Use Redis
 ```
-cache, _ := NewRedisCache(time.Second*30, &redis.Options{
+cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
     Password: "",
     DB:       0,
@@ -104,14 +106,14 @@ ctx.Abort()
 ````
 also, can use the global Hook to intercept the return information
 ```
-cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // cached value, which can be intercepted globally
 })
 
 ```
 also, use a separate Hook to intercept a message return
 ```
-cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // will not be executed here
 })
 
