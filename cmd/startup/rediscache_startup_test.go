@@ -24,7 +24,11 @@ func TestRedisCache(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := MemCache(tt.args.cacheTime, tt.args.onCacheHit...)
+			got, err := RedisCache(tt.args.cacheTime, &redis.Options{
+				Addr:     "localhost:6379",
+				Password: "",
+				DB:       0,
+			}, tt.args.onCacheHit...)
 			if err != nil {
 				assert.Error(t, err)
 				return
