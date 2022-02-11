@@ -2,14 +2,14 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pygzfei/gin-cache/drivers/memcache"
+	"github.com/pygzfei/gin-cache/cmd/startup"
 	"github.com/pygzfei/gin-cache/internal"
 	"time"
 )
 
 func main() {
 
-	cache, _ := memcache.NewCacheHandler(
+	cache, _ := startup.MemCache(
 		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 	)
 	r := gin.Default()
