@@ -19,14 +19,13 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pygzfei/gin-cache"
-	"github.com/pygzfei/gin-cache/driver/memcache"
+	"github.com/pygzfei/gin-cache/cmd/startup"
 	"time"
 )
 
 func main() {
 
-	cache, _ := memcache.NewCacheHandler(
+	cache, _ := startup.MemCache(
 		time.Minute * 30, // 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 	)
 	r := gin.Default()
@@ -84,7 +83,7 @@ r.POST("/ping", cache.Handler(
 
 ## 使用Redis
 ```
-cache, _ := NewRedisCache(time.Second*30, &redis.Options{
+cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
     Password: "",
     DB:       0,
@@ -101,14 +100,14 @@ ctx.Abort()
 ````
 可以使用全局的Hook拦截返回信息
 ```
-cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // 被缓存的值, 可以在全局拦截
 })
 
 ```
 也可以使用独立的Hook去拦截某个消息返回
 ```
-cache, _ := NewMemoryCache(timeout, func(c *gin.Context, cacheValue string) {
+cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // 这里不会被执行
 })
 

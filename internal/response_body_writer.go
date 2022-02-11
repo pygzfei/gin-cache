@@ -1,4 +1,4 @@
-package gincache
+package internal
 
 import (
 	"bytes"

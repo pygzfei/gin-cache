@@ -2,9 +2,6 @@ package memcache
 
 import (
 	"context"
-	"errors"
-	"github.com/gin-gonic/gin"
-	gincache "github.com/pygzfei/gin-cache"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +23,7 @@ type memoryHandler struct {
 
 var mux sync.Mutex
 
-// NewMemoryHandler do new memory cache object
+// NewMemoryHandler do new memory startup object
 func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	return &memoryHandler{
 		cacheStore: sync.Map{},
@@ -89,12 +86,4 @@ func (m *memoryHandler) DoEvict(_ context.Context, keys []string) {
 		delete(m.schedules, key)
 	}
 
-}
-
-// NewCacheHandler NewMemoryCache init memory support
-func NewCacheHandler(cacheTime time.Duration, onCacheHit ...func(c *gin.Context, cacheValue string)) (*gincache.CacheHandler, error) {
-	if cacheTime <= 0 {
-		return nil, errors.New("CacheTime greater than 0")
-	}
-	return gincache.New(NewMemoryHandler(cacheTime), onCacheHit...), nil
 }
