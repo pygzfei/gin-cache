@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/pygzfei/gin-cache/internal/utils"
 	. "github.com/pygzfei/gin-cache/pkg/define"
 	"io/ioutil"
 	"net/http"
@@ -51,8 +52,8 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 		doEvict := len(caching.Evict) > 0
 		ctx := context.Background()
 
-		var key string
-		var cacheString string
+		var key = ""
+		var cacheString = ""
 
 		if c.Request.Body != nil {
 			body, err := ioutil.ReadAll(c.Request.Body)
@@ -71,7 +72,9 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 			}
 
 			key = cache.getCacheKey(caching.Cacheable[0], c)
-			cacheString = cache.loadCache(ctx, key)
+			if key != "" {
+				cacheString = cache.loadCache(ctx, key)
+			}
 		}
 
 		if cacheString == "" {
@@ -100,34 +103,38 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 }
 
 func (cache *CacheHandler) getCacheKey(cacheable Cacheable, c *gin.Context) string {
-	compile, _ := regexp.Compile(`#(.*?)#`)
-	subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
-	result := make([]interface{}, len(subMatch))
-	for i, item := range subMatch {
-		s := item[1]
-		if s != "" {
-			if c.Request.Method == http.MethodGet {
-				if query, ok := c.GetQuery(s); ok {
-					result[i] = query
-				} else if strings.Contains(c.FullPath(), ":") {
-					if param := c.Param(s); param != "" {
-						result[i] = param
-					}
-				}
-			}
-			if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
-				mapFromData := make(map[string]interface{})
-				err := c.ShouldBindBodyWith(&mapFromData, binding.JSON)
-				if err == nil {
-					result[i] = mapFromData[s]
-				} else {
-					result[i] = ""
-				}
-			}
-		}
-	}
-	replaceAllString := compile.ReplaceAllString(strings.ToLower(cacheable.Key), "%v")
-	return strings.ToLower(fmt.Sprintf(cacheable.CacheName+":"+replaceAllString, result...))
+
+	//compile, _ := regexp.Compile(`#(.*?)#`)
+	//subMatch := compile.FindAllStringSubmatch(cacheable.Key, -1)
+	//result := make([]interface{}, len(subMatch))
+	params := utils.ParameterParser(c)
+
+	return strings.ToLower(cacheable.GenKey(params))
+	//for i, item := range subMatch {
+	//	s := item[1]
+	//	if s != "" {
+	//		if c.Request.Method == http.MethodGet {
+	//			if query, ok := c.GetQuery(s); ok {
+	//				result[i] = query
+	//			} else if strings.Contains(c.FullPath(), ":") {
+	//				if param := c.Param(s); param != "" {
+	//					result[i] = param
+	//				}
+	//			}
+	//		}
+	//		if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
+	//			mapFromData := make(map[string]interface{})
+	//			err := c.ShouldBindBodyWith(&mapFromData, binding.JSON)
+	//			if err == nil {
+	//				result[i] = mapFromData[s]
+	//			} else {
+	//				result[i] = ""
+	//			}
+	//		}
+	//	}
+	//}
+	//replaceAllString := compile.ReplaceAllString(strings.ToLower(cacheable.Key), "%v")
+	//return strings.ToLower(fmt.Sprintf(cacheable.CacheName+":"+replaceAllString, result...))
 }
 
 func (cache *CacheHandler) loadCache(ctx context.Context, key string) string {
