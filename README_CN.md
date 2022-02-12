@@ -23,7 +23,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
-    "github.com/pygzfei/gin-cache/pkg/define"
+	"github.com/pygzfei/gin-cache/pkg/define"
 	"time"
 )
 
@@ -37,8 +37,10 @@ func main() {
 	r.GET("/ping", cache.Handler(
 		define.Caching{
 			Cacheable: []define.Cacheable{
-				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
-				{CacheName: "anson", Key: `id:#id#`},
+				// params["id"] 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
+				{GenKey: func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:id:%s", params["id"])
+				}},
 			},
 		},
 		func(c *gin.Context) {
@@ -60,8 +62,10 @@ func main() {
 r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
-            // #id# 从Post Body Json获取 `{"id": 1}`
-            {CacheName: []string{"anson"}, Key: "id:#id#"},
+            // params["id"] 从 Post Body Json获取 `{"id": 1}`
+            func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:id:%s", params["id"])
+			},
         },
     },
     func(c *gin.Context) {
@@ -75,8 +79,9 @@ r.POST("/ping", cache.Handler(
 r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
-            // #id# 从Post Body Json获取 `{"id": 1}`
-            {CacheName: []string{"anson"}, Key: "id:#id#*"},
+            func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:id:%s*", params["id"])
+			},
         },
     },
     func(c *gin.Context) {
@@ -118,7 +123,9 @@ cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
 r.GET("/pings", cache.Handler(
     define.Caching{
         Cacheable: []define.Cacheable{
-            {CacheName: "anson", Key: `userId:#id# hash:#hash#`,
+            GenKey: func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
+			},
              onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // 这里会覆盖cache的全局拦截
                 assert.True(t, len(cacheValue) > 0)

@@ -52,7 +52,9 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	r.GET("/ping", cache.Handler(
 		define.Caching{
 			Cacheable: []define.Cacheable{
-				{CacheName: "anson", Key: `userId:#id# hash:#hash#`},
+				{GenKey: func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:userId:%v hash:%v", params["id"], params["hash"])
+				}},
 			},
 		},
 		func(c *gin.Context) {
@@ -68,7 +70,9 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	r.GET("/ping/:id/:hash", cache.Handler(
 		define.Caching{
 			Cacheable: []define.Cacheable{
-				{CacheName: "anson", Key: `userId:#id# hash:#hash#`},
+				{GenKey: func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:userId:%v hash:%v", params["id"], params["hash"])
+				}},
 			},
 		},
 		func(c *gin.Context) {
@@ -84,7 +88,9 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	r.POST("/ping", cache.Handler(
 		define.Caching{
 			Evict: []define.CacheEvict{
-				{CacheName: []string{"anson"}, Key: "userId:#id#*"},
+				func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:userId:%s*", params["id"])
+				},
 			},
 		},
 		func(c *gin.Context) {
@@ -246,7 +252,9 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 				r.GET("/pings", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `userId:#id# hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -265,7 +273,9 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 				r.POST("/pings", cache.Handler(
 					define.Caching{
 						Evict: []define.CacheEvict{
-							{CacheName: []string{"anson"}, Key: "userId:#id#*"},
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:userId:%s*", params["id"])
+							},
 						},
 					},
 					func(c *gin.Context) {
@@ -342,7 +352,9 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.PUT("/ping", cache.Handler(
 					define.Caching{
 						Evict: []define.CacheEvict{
-							{CacheName: []string{"anson"}, Key: "hash*"},
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash*")
+							},
 						},
 					},
 					func(c *gin.Context) {
@@ -357,9 +369,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.DELETE("/pings", cache.Handler(
 					define.Caching{
 						Evict: []define.CacheEvict{
-							{
-								CacheName: []string{"anson"},
-								Key:       "name:#name#",
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:name:%s", params["name"])
 							},
 						},
 					},
@@ -375,7 +386,9 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.GET("/pings", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`},
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							}},
 						},
 					},
 					func(c *gin.Context) {
@@ -455,10 +468,13 @@ func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 				r.POST("/pings", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
-								// 这里会覆盖cache 实例的方法
-								assert.True(t, len(cacheValue) > 0)
-							}}},
+							{
+								GenKey: func(params map[string]interface{}) string {
+									return fmt.Sprintf("anson:hash:%s", params["hash"])
+								}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+									// 这里会覆盖cache 实例的方法
+									assert.True(t, len(cacheValue) > 0)
+								}}},
 						},
 					},
 					func(c *gin.Context) {
@@ -493,9 +509,9 @@ func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) 
 		for _, item := range []struct {
 			Hash string
 		}{
-			{Hash: fmt.Sprintf("hash%v", rand.Int())},
-			{Hash: fmt.Sprintf("hash%v", rand.Int())},
-			{Hash: fmt.Sprintf("hash%v", rand.Int())},
+			{Hash: fmt.Sprintf("%v", rand.Int())},
+			{Hash: fmt.Sprintf("%v", rand.Int())},
+			{Hash: fmt.Sprintf("%v", rand.Int())},
 		} {
 			t.Run(fmt.Sprintf(`Not Error %s`, item.Hash), func(t *testing.T) {
 				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
@@ -503,15 +519,22 @@ func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) 
 				r.POST("/pings", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`},
+							//{CacheName: "anson", Key: `hash:#hash#`},
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							}},
 						},
 						Evict: []define.CacheEvict{
-							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
+							//{CacheName: []string{"anson"}, Key: `hash:#hash#`},
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							},
 						},
 					},
 					func(c *gin.Context) {
 						json := make(map[string]interface{})
-						c.BindJSON(&json)
+						err := c.BindJSON(&json)
+						fmt.Println(err)
 						c.JSON(200, json)
 					},
 				))
@@ -549,7 +572,9 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 				r.GET("/ping_for_get", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -564,7 +589,9 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 				r.POST("/ping_for_post", cache.Handler(
 					define.Caching{
 						Evict: []define.CacheEvict{
-							{CacheName: []string{"anson"}, Key: `hash:#hash#`},
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							},
 						},
 					},
 					func(c *gin.Context) {
@@ -613,7 +640,9 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 				r.PUT("/pings", cache.Handler(
 					define.Caching{
 						Cacheable: []define.Cacheable{
-							{CacheName: "anson", Key: `hash:#hash#`, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:hash:%s", params["hash"])
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
 								// 这里会覆盖cache 实例的方法
 								assert.True(t, len(cacheValue) > 0)
 							}}},
@@ -671,7 +700,9 @@ func Test_All_Cache_Evict(t *testing.T) {
 				r.POST("/ping_for_post", cache.Handler(
 					define.Caching{
 						Evict: []define.CacheEvict{
-							{CacheName: []string{"anson"}, Key: `*`},
+							func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:*")
+							},
 						},
 					},
 					func(c *gin.Context) {
