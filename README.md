@@ -31,7 +31,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
-    "github.com/pygzfei/gin-cache/pkg/define"
+	"github.com/pygzfei/gin-cache/pkg/define"
 	"time"
 )
 
@@ -47,9 +47,11 @@ func main() {
 	r.GET("/ping", cache.Handler(
 		define.Caching{
 			Cacheable: []define.Cacheable{
-				// #id# is the request data from query or post data, for example: 
-				// http://domain/?id=1, the cache will be generated as: ` Anson: userid: 1`
-				{CacheName: "anson", Key: `id:#id#`},
+				// params["id"] is the request data from query or post data, for example: 
+				// http://domain/?id=1, the cache will be generated as: `anson:id:1`
+				{GenKey: func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:id:%s", params["id"])
+				}},
 			},
 		},
 		func(c *gin.Context) {
@@ -72,8 +74,10 @@ func main() {
 r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
-            // #id# Get `{"id": 1}` from Post Body Json
-            {CacheName: []string{"anson"}, Key: "id:#id#"},
+            // params["id"]  from Post Body Json `{"id": 1}`
+            func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:id:%s", params["id"])
+			},
         },
     },
     func(c *gin.Context) {
@@ -87,8 +91,9 @@ r.POST("/ping", cache.Handler(
 r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
-            // #id# 从Post Body Json获取 `{"id": 1}`
-            {CacheName: []string{"anson"}, Key: "id:#id#*"},
+            func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:id:%s*", params["id"])
+			},
         },
     },
     func(c *gin.Context) {
@@ -137,7 +142,9 @@ cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
 r.GET("/pings", cache.Handler(
     define.Caching{
         Cacheable: []define.Cacheable{
-            {CacheName: "anson", Key: `userId:#id# hash:#hash#`,
+            GenKey: func(params map[string]interface{}) string {
+				return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
+			},
              onCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // this will override the global interception of the cache
                 assert.True(t, len(cacheValue) > 0)

@@ -34,6 +34,7 @@ func ParameterParser(c *gin.Context) map[string]interface{} {
 		}
 	}
 	if c.Request.Method == http.MethodGet {
+
 		//整合query参数
 		queryParams := GetQuery(c.Request)
 		for key, val := range queryParams {
@@ -41,13 +42,12 @@ func ParameterParser(c *gin.Context) map[string]interface{} {
 		}
 	} else if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut {
 		postMap := make(map[string]interface{})
-		err := c.ShouldBindBodyWith(postMap, binding.JSON)
+		err := c.ShouldBindBodyWith(&postMap, binding.JSON)
 		if err == nil {
 			for key, val := range postMap {
 				m[key] = val
 			}
 		}
 	}
-
 	return m
 }

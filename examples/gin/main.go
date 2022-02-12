@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/cmd/startup"
 	"github.com/pygzfei/gin-cache/pkg/define"
@@ -16,8 +17,10 @@ func main() {
 	r.GET("/ping", cache.Handler(
 		define.Caching{
 			Cacheable: []define.Cacheable{
-				// #id# 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
-				//{CacheName: "anson", Key: `id:#id#`},
+				// params["id"] 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:id:1`
+				{GenKey: func(params map[string]interface{}) string {
+					return fmt.Sprintf("anson:id:%s", params["id"])
+				}},
 			},
 		},
 		func(c *gin.Context) {
