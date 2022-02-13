@@ -40,7 +40,7 @@ func main() {
 	cache, _ := startup.MemCache(
 	// Global cache time
 	// The survival time of each cache is 30 minutes. 
-	//Different key values have different expiration times and do not affect each other
+	// Different key values have different expiration times and do not affect each other
 		time.Minute * 30, 
 	)
 	r := gin.Default()
