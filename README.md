@@ -38,6 +38,7 @@ import (
 func main() {
 
 	cache, _ := startup.MemCache(
+	// Global cache time
 	// The survival time of each cache is 30 minutes. 
 	//Different key values have different expiration times and do not affect each other
 		time.Minute * 30, 
@@ -46,12 +47,12 @@ func main() {
 
 	r.GET("/ping", cache.Handler(
 		define.Caching{
-			Cacheable: []define.Cacheable{
-				// params["id"] is the request data from query or post data, for example: 
-				// http://domain/?id=1, the cache will be generated as: `anson:id:1`
-				{GenKey: func(params map[string]interface{}) string {
-					return fmt.Sprintf("anson:id:%s", params["id"])
-				}},
+		    Cacheable: []define.Cacheable{
+                    // params["id"] is the request data from query or post data, for example: 
+                    // http://domain/?id=1, the cache will be generated as: `anson:id:1`
+                    {GenKey: func(params map[string]interface{}) string {
+                        return fmt.Sprintf("anson:id:%s", params["id"])
+                    }},
 			},
 		},
 		func(c *gin.Context) {
@@ -66,6 +67,32 @@ func main() {
 
 ```
 
+## Overwrite global cache time
+
+```
+cache, _ := startup.MemCache(
+    time.Minute * 30, // Global cache time
+)
+
+r := gin.Default()
+
+r.GET("/ping_for_timeout", cache.Handler(
+    define.Caching{
+        Cacheable: []define.Cacheable{
+            {GenKey: func(params map[string]interface{}) string {
+                return fmt.Sprintf("anson:id:%s&name=%s", item.Id, item.Hash)
+            }, 
+            // The effective time of the cache will be based on this time value instead of the global value
+            CacheTime: time.Second },
+        },
+    },
+    func(c *gin.Context) {
+       // ...
+    },
+))
+
+```
+
 ## Trigger Cache evict
 
 ```
@@ -76,8 +103,8 @@ r.POST("/ping", cache.Handler(
         Evict: []define.CacheEvict{
             // params["id"]  from Post Body Json `{"id": 1}`
             func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:id:%s", params["id"])
-			},
+                return fmt.Sprintf("anson:id:%s", params["id"])
+            },
         },
     },
     func(c *gin.Context) {
@@ -92,8 +119,8 @@ r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
             func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:id:%s*", params["id"])
-			},
+                return fmt.Sprintf("anson:id:%s*", params["id"])
+            },
         },
     },
     func(c *gin.Context) {
@@ -143,8 +170,8 @@ r.GET("/pings", cache.Handler(
     define.Caching{
         Cacheable: []define.Cacheable{
             GenKey: func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
-			},
+                return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
+            },
              onCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // this will override the global interception of the cache
                 assert.True(t, len(cacheValue) > 0)
