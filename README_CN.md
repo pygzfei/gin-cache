@@ -36,12 +36,12 @@ func main() {
 
 	r.GET("/ping", cache.Handler(
 		define.Caching{
-			Cacheable: []define.Cacheable{
-				// params["id"] 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
-				{GenKey: func(params map[string]interface{}) string {
-					return fmt.Sprintf("anson:id:%s", params["id"])
-				}},
-			},
+            Cacheable: []define.Cacheable{
+                // params["id"] 是请求数据, 来自于query 或者 post data, 例如: `/?id=1`, 缓存将会生成为: `anson:userid:1`
+                {GenKey: func(params map[string]interface{}) string {
+                    return fmt.Sprintf("anson:id:%s", params["id"])
+                }},
+            },
 		},
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{
@@ -55,6 +55,32 @@ func main() {
 
 ```
 
+## 独立的缓存时间
+
+```
+cache, _ := startup.MemCache(
+    time.Minute * 30, // 全局的缓存时间, 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
+)
+
+r := gin.Default()
+
+r.GET("/ping_for_timeout", cache.Handler(
+    define.Caching{
+        Cacheable: []define.Cacheable{
+            {GenKey: func(params map[string]interface{}) string {
+                return fmt.Sprintf("anson:id:%s&name=%s", item.Id, item.Hash)
+            }, 
+            // 缓存的有效时间, 将会按照这个时间值, 而不是全局的值
+            CacheTime: time.Second },
+        },
+    },
+    func(c *gin.Context) {
+       // ...
+    },
+))
+
+```
+
 ## 触发缓存驱逐
 ```
 // Post Body Json: {"id": 1}
@@ -64,8 +90,8 @@ r.POST("/ping", cache.Handler(
         Evict: []define.CacheEvict{
             // params["id"] 从 Post Body Json获取 `{"id": 1}`
             func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:id:%s", params["id"])
-			},
+                return fmt.Sprintf("anson:id:%s", params["id"])
+            },
         },
     },
     func(c *gin.Context) {
@@ -80,8 +106,8 @@ r.POST("/ping", cache.Handler(
     define.Caching{
         Evict: []define.CacheEvict{
             func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:id:%s*", params["id"])
-			},
+                return fmt.Sprintf("anson:id:%s*", params["id"])
+            },
         },
     },
     func(c *gin.Context) {
@@ -124,8 +150,8 @@ r.GET("/pings", cache.Handler(
     define.Caching{
         Cacheable: []define.Cacheable{
             GenKey: func(params map[string]interface{}) string {
-				return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
-			},
+                return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
+            },
              onCacheHit: CacheHitHook{func(c *gin.Context, cacheValue string) {
                 // 这里会覆盖cache的全局拦截
                 assert.True(t, len(cacheValue) > 0)

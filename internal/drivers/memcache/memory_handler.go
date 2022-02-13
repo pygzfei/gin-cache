@@ -41,12 +41,17 @@ func (m *memoryHandler) Load(_ context.Context, key string) string {
 	return ""
 }
 
-func (m *memoryHandler) Set(ctx context.Context, key string, data string) {
+func (m *memoryHandler) Set(ctx context.Context, key string, data string, timeout time.Duration) {
 	mux.Lock()
 	defer mux.Unlock()
 	m.cacheStore.Store(key, data)
 	// timeout
-	schedule := Schedule{Key: key, Timer: time.NewTimer(m.cacheTime)}
+	var schedule Schedule
+	if timeout > 0 {
+		schedule = Schedule{Key: key, Timer: time.NewTimer(timeout)}
+	} else {
+		schedule = Schedule{Key: key, Timer: time.NewTimer(m.cacheTime)}
+	}
 	m.schedules[key] = schedule.Timer
 	go func(s *Schedule) {
 		select {

@@ -9,13 +9,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var bodyBytesKey = "bodyIO"
 
 type Cache interface {
 	Load(ctx context.Context, key string) string
-	Set(ctx context.Context, key string, data string)
+	Set(ctx context.Context, key string, data string, timeout time.Duration)
 	DoEvict(ctx context.Context, keys []string)
 }
 
@@ -28,8 +29,8 @@ func (cache *CacheHandler) Load(ctx context.Context, key string) string {
 	return cache.Cache.Load(ctx, key)
 }
 
-func (cache *CacheHandler) Set(ctx context.Context, key string, data string) {
-	cache.Cache.Set(ctx, key, data)
+func (cache *CacheHandler) Set(ctx context.Context, key string, data string, timeout time.Duration) {
+	cache.Cache.Set(ctx, key, data, timeout)
 }
 
 func (cache *CacheHandler) DoEvict(ctx context.Context, keys []string) {
@@ -92,7 +93,7 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 		if doCache {
 			if cacheString = cache.loadCache(ctx, key); cacheString == "" {
 				s := c.Writer.(*ResponseBodyWriter).body.String()
-				cache.setCache(ctx, key, s)
+				cache.setCache(ctx, key, s, caching.Cacheable[0].CacheTime)
 			}
 		}
 
@@ -108,8 +109,8 @@ func (cache *CacheHandler) loadCache(ctx context.Context, key string) string {
 	return cache.Cache.Load(ctx, key)
 }
 
-func (cache *CacheHandler) setCache(ctx context.Context, key string, data string) {
-	cache.Cache.Set(ctx, key, data)
+func (cache *CacheHandler) setCache(ctx context.Context, key string, data string, timeout time.Duration) {
+	cache.Cache.Set(ctx, key, data, timeout)
 }
 
 func (cache *CacheHandler) doCacheEvict(ctx context.Context, c *gin.Context, cacheEvicts ...CacheEvict) {
