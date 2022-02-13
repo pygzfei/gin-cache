@@ -1,6 +1,9 @@
 package define
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"time"
+)
 
 // CacheHitHook startup on hit hook
 type CacheHitHook []func(c *gin.Context, cacheValue string)
@@ -14,6 +17,7 @@ type CacheEvict GenKeyFunc
 // Cacheable do caching
 type Cacheable struct {
 	GenKey     GenKeyFunc
+	CacheTime  time.Duration
 	OnCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
 }
 

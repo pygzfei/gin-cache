@@ -683,6 +683,52 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 	}
 }
 
+func Test_Diff_Timeout_Cache_Evict(t *testing.T) {
+
+	for _, runFor := range []RunFor{MemoryCache, RedisCache} {
+
+		for _, item := range []struct {
+			Id   string
+			Hash string
+		}{
+			{Id: "1", Hash: "anson1"},
+			{Id: "2", Hash: "anson2"},
+		} {
+			t.Run(fmt.Sprintf(`can startup %s  %s`, item.Id, item.Hash), func(t *testing.T) {
+
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor)
+
+				r.GET("/ping_for_timeout", cache.Handler(
+					define.Caching{
+						Cacheable: []define.Cacheable{
+							{GenKey: func(params map[string]interface{}) string {
+								return fmt.Sprintf("anson:id:%s&name=%s", item.Id, item.Hash)
+							}, CacheTime: time.Second},
+						},
+					},
+					func(c *gin.Context) {
+						c.JSON(200, gin.H{
+							"id":   item.Id,
+							"hash": item.Hash,
+						})
+					},
+				))
+
+				w := httptest.NewRecorder()
+				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/ping_for_timeout?id=%s&name=%s", item.Id, item.Hash), nil)
+				r.ServeHTTP(w, req)
+
+				time.Sleep(time.Second * 2)
+
+				loadCache := cache.Load(context.Background(), fmt.Sprintf("anson:id:%s&name=%s", item.Id, item.Hash))
+
+				assert.Equal(t, loadCache, "")
+			})
+
+		}
+	}
+}
+
 func Test_All_Cache_Evict(t *testing.T) {
 
 	for _, runFor := range []RunFor{MemoryCache, RedisCache} {

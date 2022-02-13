@@ -21,8 +21,12 @@ func (r *redisCache) Load(ctx context.Context, key string) string {
 	return r.cacheStore.Get(ctx, key).Val()
 }
 
-func (r *redisCache) Set(ctx context.Context, key string, data string) {
-	r.cacheStore.Set(ctx, key, data, r.cacheTime)
+func (r *redisCache) Set(ctx context.Context, key string, data string, timeout time.Duration) {
+	if timeout > 0 {
+		r.cacheStore.Set(ctx, key, data, timeout)
+	} else {
+		r.cacheStore.Set(ctx, key, data, r.cacheTime)
+	}
 }
 
 func (r *redisCache) DoEvict(ctx context.Context, keys []string) {
