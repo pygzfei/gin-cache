@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/go-redis/redis/v8"
 	"github.com/pygzfei/gin-cache/pkg/define"
-	"log"
 	"math"
 	"time"
 )
@@ -30,7 +29,6 @@ func (r *redisCache) Load(ctx context.Context, key string) *define.CacheItem {
 
 func (r *redisCache) Set(ctx context.Context, key string, data *define.CacheItem, timeout time.Duration) {
 	d, _ := json.Marshal(data)
-	log.Println(string(d))
 	if timeout > 0 {
 		r.cacheStore.Set(ctx, key, d, timeout)
 	} else {
