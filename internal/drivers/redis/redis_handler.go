@@ -2,7 +2,10 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/go-redis/redis/v8"
+	"github.com/pygzfei/gin-cache/pkg/define"
+	"log"
 	"math"
 	"time"
 )
@@ -17,15 +20,21 @@ func NewRedisHandler(client *redis.Client, cacheTime time.Duration) *redisCache 
 	return &redisCache{cacheStore: client, cacheTime: cacheTime}
 }
 
-func (r *redisCache) Load(ctx context.Context, key string) string {
-	return r.cacheStore.Get(ctx, key).Val()
+func (r *redisCache) Load(ctx context.Context, key string) *define.CacheItem {
+	item := new(define.CacheItem)
+	if err := json.Unmarshal([]byte(r.cacheStore.Get(ctx, key).Val()), item); err != nil {
+		return nil
+	}
+	return item
 }
 
-func (r *redisCache) Set(ctx context.Context, key string, data string, timeout time.Duration) {
+func (r *redisCache) Set(ctx context.Context, key string, data *define.CacheItem, timeout time.Duration) {
+	d, _ := json.Marshal(data)
+	log.Println(string(d))
 	if timeout > 0 {
-		r.cacheStore.Set(ctx, key, data, timeout)
+		r.cacheStore.Set(ctx, key, d, timeout)
 	} else {
-		r.cacheStore.Set(ctx, key, data, r.cacheTime)
+		r.cacheStore.Set(ctx, key, d, r.cacheTime)
 	}
 }
 

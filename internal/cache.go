@@ -7,7 +7,6 @@ import (
 	"github.com/pygzfei/gin-cache/internal/utils"
 	. "github.com/pygzfei/gin-cache/pkg/define"
 	"io/ioutil"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -15,8 +14,8 @@ import (
 var bodyBytesKey = "bodyIO"
 
 type Cache interface {
-	Load(ctx context.Context, key string) string
-	Set(ctx context.Context, key string, data string, timeout time.Duration)
+	Load(ctx context.Context, key string) *CacheItem
+	Set(ctx context.Context, key string, data *CacheItem, timeout time.Duration)
 	DoEvict(ctx context.Context, keys []string)
 }
 
@@ -25,11 +24,11 @@ type CacheHandler struct {
 	OnCacheHit CacheHitHook // 命中缓存钩子 优先级低
 }
 
-func (cache *CacheHandler) Load(ctx context.Context, key string) string {
+func (cache *CacheHandler) Load(ctx context.Context, key string) *CacheItem {
 	return cache.Cache.Load(ctx, key)
 }
 
-func (cache *CacheHandler) Set(ctx context.Context, key string, data string, timeout time.Duration) {
+func (cache *CacheHandler) Set(ctx context.Context, key string, data *CacheItem, timeout time.Duration) {
 	cache.Cache.Set(ctx, key, data, timeout)
 }
 
@@ -37,7 +36,7 @@ func (cache *CacheHandler) DoEvict(ctx context.Context, keys []string) {
 	cache.Cache.DoEvict(ctx, keys)
 }
 
-func New(c Cache, onCacheHit ...func(c *gin.Context, cacheValue string)) *CacheHandler {
+func New(c Cache, onCacheHit ...func(c *gin.Context, cacheValue *CacheItem)) *CacheHandler {
 	return &CacheHandler{c, onCacheHit}
 }
 
@@ -51,7 +50,7 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 		ctx := context.Background()
 
 		var key = ""
-		var cacheString = ""
+		var cacheItem = &CacheItem{}
 
 		if c.Request.Body != nil {
 			body, err := ioutil.ReadAll(c.Request.Body)
@@ -71,11 +70,11 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 
 			key = cache.getCacheKey(caching.Cacheable[0], c)
 			if key != "" {
-				cacheString = cache.loadCache(ctx, key)
+				cacheItem = cache.loadCache(ctx, key)
 			}
 		}
 
-		if cacheString == "" {
+		if cacheItem == nil {
 
 			refreshBodyData(c)
 
@@ -84,16 +83,28 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 			refreshBodyData(c)
 
 		} else {
-			cache.doCacheHit(c, caching, cacheString)
+			cache.doCacheHit(c, caching, cacheItem)
 		}
 		if doEvict {
 			refreshBodyData(c)
 			cache.doCacheEvict(ctx, c, caching.Evict...)
 		}
 		if doCache {
-			if cacheString = cache.loadCache(ctx, key); cacheString == "" {
-				s := c.Writer.(*ResponseBodyWriter).body.String()
-				cache.setCache(ctx, key, s, caching.Cacheable[0].CacheTime)
+			if cacheItem = cache.loadCache(ctx, key); cacheItem == nil {
+				//todo 添加缓存控制头，允许浏览器缓存控制
+				//s := c.Writer.(*ResponseBodyWriter).body.String()
+				//cloneHeader := c.Writer.Header().Clone()
+				//// cache control
+				//cloneHeader.Set("X-Cache", "HIT;")
+				//cloneHeader.Set("Cache-Control", "private;")
+				//cloneHeader.Set("Expires", time.Now().Add(caching.Cacheable[0].CacheTime).Format(time.RFC1123))
+
+				cacheItem = &CacheItem{
+					Header:     c.Writer.Header().Clone(),
+					HeaderCode: c.Writer.Status(),
+					Body:       c.Writer.(*ResponseBodyWriter).body.Bytes(),
+				}
+				cache.setCache(ctx, key, cacheItem, caching.Cacheable[0].CacheTime)
 			}
 		}
 
@@ -105,11 +116,11 @@ func (cache *CacheHandler) getCacheKey(cacheable Cacheable, c *gin.Context) stri
 	return strings.ToLower(cacheable.GenKey(params))
 }
 
-func (cache *CacheHandler) loadCache(ctx context.Context, key string) string {
+func (cache *CacheHandler) loadCache(ctx context.Context, key string) *CacheItem {
 	return cache.Cache.Load(ctx, key)
 }
 
-func (cache *CacheHandler) setCache(ctx context.Context, key string, data string, timeout time.Duration) {
+func (cache *CacheHandler) setCache(ctx context.Context, key string, data *CacheItem, timeout time.Duration) {
 	cache.Cache.Set(ctx, key, data, timeout)
 }
 
@@ -128,23 +139,26 @@ func (cache *CacheHandler) doCacheEvict(ctx context.Context, c *gin.Context, cac
 	}
 }
 
-func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, cacheValue string) {
+func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, item *CacheItem) {
 
 	if len(caching.Cacheable[0].OnCacheHit) > 0 {
-		caching.Cacheable[0].OnCacheHit[0](ctx, cacheValue)
+		caching.Cacheable[0].OnCacheHit[0](ctx, item)
 		ctx.Abort()
 		return
 	}
 
 	if len(cache.OnCacheHit) > 0 {
-		cache.OnCacheHit[0](ctx, cacheValue)
+		cache.OnCacheHit[0](ctx, item)
 		ctx.Abort()
 		return
 	}
 
 	// default hit startup
-	ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
-	ctx.String(http.StatusOK, cacheValue)
+	for k, v := range item.Header {
+		ctx.Writer.Header()[k] = v
+	}
+	_, _ = ctx.Writer.Write(item.Body)
+	ctx.Writer.WriteHeader(item.HeaderCode)
 	ctx.Abort()
 }
 

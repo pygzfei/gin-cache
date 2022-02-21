@@ -2,6 +2,7 @@ package memcache
 
 import (
 	"context"
+	"github.com/pygzfei/gin-cache/pkg/define"
 	"strings"
 	"sync"
 	"time"
@@ -33,15 +34,15 @@ func NewMemoryHandler(cacheTime time.Duration) *memoryHandler {
 	}
 }
 
-func (m *memoryHandler) Load(_ context.Context, key string) string {
+func (m *memoryHandler) Load(_ context.Context, key string) *define.CacheItem {
 	load, ok := m.cacheStore.Load(key)
 	if ok {
-		return load.(string)
+		return load.(*define.CacheItem)
 	}
-	return ""
+	return nil
 }
 
-func (m *memoryHandler) Set(ctx context.Context, key string, data string, timeout time.Duration) {
+func (m *memoryHandler) Set(ctx context.Context, key string, data *define.CacheItem, timeout time.Duration) {
 	mux.Lock()
 	defer mux.Unlock()
 	m.cacheStore.Store(key, data)

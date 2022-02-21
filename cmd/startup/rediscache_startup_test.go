@@ -3,6 +3,7 @@ package startup
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/pygzfei/gin-cache/pkg/define"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ func TestRedisCache(t *testing.T) {
 	type args struct {
 		cacheTime  time.Duration
 		options    *redis.Options
-		onCacheHit []func(c *gin.Context, cacheValue string)
+		onCacheHit []func(c *gin.Context, cacheValue *define.CacheItem)
 	}
 	tests := []struct {
 		name    string

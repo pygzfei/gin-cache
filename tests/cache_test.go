@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -28,16 +29,20 @@ const (
 	RedisCache  RunFor = 1
 )
 
-func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func(c *gin.Context, cacheValue string)) (*gin.Engine, *internal.CacheHandler) {
+func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func(c *gin.Context, cacheValue *define.CacheItem)) (*gin.Engine, *internal.CacheHandler) {
 	var cache *internal.CacheHandler
 
 	if runFor == MemoryCache {
 		cache, _ = startup.MemCache(timeout, onHit...)
 	} else if runFor == RedisCache {
+		redisHost := os.Getenv("REDIS_HOST")
+		if redisHost == "" {
+			redisHost = "127.0.0.1"
+		}
 		cache, _ = startup.RedisCache(
 			timeout,
 			&redis.Options{
-				Addr:     "localhost:6379",
+				Addr:     fmt.Sprintf("%s:6379", redisHost),
 				Password: "",
 				DB:       0,
 			},
@@ -78,6 +83,9 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 		func(c *gin.Context) {
 			id := c.Param("id")
 			hash := c.Param("hash")
+			c.Header("X-ID", id)
+			c.Header("X-Hash", hash)
+
 			c.JSON(200, gin.H{
 				"id":   id,
 				"hash": hash,
@@ -119,8 +127,8 @@ func Test_Path_Variable_Not_Variable_Can_Cache_CanStore(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
-					assert.True(t, len(cacheValue) > 0)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue *define.CacheItem) {
+					assert.True(t, cacheValue != nil)
 				})
 
 				w := httptest.NewRecorder()
@@ -132,7 +140,7 @@ func Test_Path_Variable_Not_Variable_Can_Cache_CanStore(t *testing.T) {
 				assert.Equal(t, 200, w.Code)
 
 				sprintf := `{"hash":"","id":""}`
-				equalJSON, err := AreEqualJSON(sprintf, loadCache)
+				equalJSON, err := AreEqualJSON(sprintf, string(loadCache.Body))
 				assert.Equal(t, equalJSON && err == nil, true)
 
 				//test for startup hit hook
@@ -160,8 +168,8 @@ func Test_Path_Variable_Cache_CanStore(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
-					assert.True(t, len(cacheValue) > 0)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue *define.CacheItem) {
+					assert.True(t, cacheValue != nil)
 				})
 
 				w := httptest.NewRecorder()
@@ -173,8 +181,12 @@ func Test_Path_Variable_Cache_CanStore(t *testing.T) {
 				assert.Equal(t, 200, w.Code)
 
 				sprintf := fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash)
-				equalJSON, err := AreEqualJSON(sprintf, loadCache)
+				equalJSON, err := AreEqualJSON(sprintf, string(loadCache.Body))
 				assert.Equal(t, equalJSON && err == nil, true)
+
+				// test for header cache
+				assert.Equal(t, loadCache.Header.Get("X-ID"), item.Id)
+				assert.Equal(t, loadCache.Header.Get("X-Hash"), item.Hash)
 
 				//test for startup hit hook
 				w = httptest.NewRecorder()
@@ -201,8 +213,8 @@ func Test_Cache_CanStore(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
-					assert.True(t, len(cacheValue) > 0)
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue *define.CacheItem) {
+					assert.True(t, cacheValue != nil)
 				})
 
 				w := httptest.NewRecorder()
@@ -214,7 +226,7 @@ func Test_Cache_CanStore(t *testing.T) {
 				assert.Equal(t, 200, w.Code)
 
 				sprintf := fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash)
-				equalJSON, err := AreEqualJSON(sprintf, loadCache)
+				equalJSON, err := AreEqualJSON(sprintf, string(loadCache.Body))
 				assert.Equal(t, equalJSON && err == nil, true)
 
 				//test for startup hit hook
@@ -243,7 +255,7 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 			},
 		} {
 			t.Run(fmt.Sprintf(`key: %s  %s`, item.Id, item.Hash), func(t *testing.T) {
-				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue string) {
+				r, cache := givingCacheOfHttpServer(time.Hour, runFor, func(c *gin.Context, cacheValue *define.CacheItem) {
 					// 这里不会被触发
 					err := errors.New("should not trigger this func")
 					assert.NoError(t, err)
@@ -254,9 +266,9 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 						Cacheable: []define.Cacheable{
 							{GenKey: func(params map[string]interface{}) string {
 								return fmt.Sprintf("anson:userId:%s hash:%s", params["id"], params["hash"])
-							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue *define.CacheItem) {
 								// 这里会覆盖cache 实例的方法
-								assert.True(t, len(cacheValue) > 0)
+								assert.True(t, cacheValue != nil)
 							}}},
 						},
 					},
@@ -292,7 +304,7 @@ func Test_Cache_CanStore_Hit_Hook(t *testing.T) {
 				loadCache := cache.Load(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
 				assert.Equal(t, 200, w.Code)
 
-				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), loadCache)
+				equalJSON, err := AreEqualJSON(fmt.Sprintf(`{"id": "%s", "hash": "%s"}`, item.Id, item.Hash), string(loadCache.Body))
 				assert.Equal(t, equalJSON && err == nil, true)
 
 				// test for startup hit hook
@@ -358,8 +370,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
@@ -375,8 +387,8 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
@@ -471,15 +483,15 @@ func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 							{
 								GenKey: func(params map[string]interface{}) string {
 									return fmt.Sprintf("anson:hash:%s", params["hash"])
-								}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+								}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue *define.CacheItem) {
 									// 这里会覆盖cache 实例的方法
-									assert.True(t, len(cacheValue) > 0)
+									assert.True(t, cacheValue != nil)
 								}}},
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
@@ -494,7 +506,7 @@ func Test_Post_Method_Should_Be_Cache(t *testing.T) {
 				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
 				cacheValue := cache.Load(context.Background(), sprintf)
 
-				equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+				equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, string(cacheValue.Body))
 				assert.True(t, equalJSON)
 			})
 		}
@@ -532,10 +544,10 @@ func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) 
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						err := c.BindJSON(&json)
+						body := make(map[string]interface{})
+						err := c.BindJSON(&body)
 						fmt.Println(err)
-						c.JSON(200, json)
+						c.JSON(200, body)
 					},
 				))
 
@@ -546,7 +558,7 @@ func Test_Post_Method_Should_Be_Evict_Old_Data_And_Cache_New_Data(t *testing.T) 
 
 				sprintf := fmt.Sprintf("anson:hash:%s", item.Hash)
 				cacheValue := cache.Load(context.Background(), sprintf)
-				equalJSON, _ := AreEqualJSON(cacheValue, body)
+				equalJSON, _ := AreEqualJSON(string(cacheValue.Body), body)
 				assert.True(t, equalJSON)
 
 			})
@@ -574,9 +586,9 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 						Cacheable: []define.Cacheable{
 							{GenKey: func(params map[string]interface{}) string {
 								return fmt.Sprintf("anson:hash:%s", params["hash"])
-							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue *define.CacheItem) {
 								// 这里会覆盖cache 实例的方法
-								assert.True(t, len(cacheValue) > 0)
+								assert.True(t, cacheValue != nil)
 							}}},
 						},
 					},
@@ -595,9 +607,9 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
-						c.JSON(200, json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
+						c.JSON(200, body)
 					},
 				))
 
@@ -642,15 +654,15 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 						Cacheable: []define.Cacheable{
 							{GenKey: func(params map[string]interface{}) string {
 								return fmt.Sprintf("anson:hash:%s", params["hash"])
-							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue string) {
+							}, OnCacheHit: define.CacheHitHook{func(c *gin.Context, cacheValue *define.CacheItem) {
 								// 这里会覆盖cache 实例的方法
-								assert.True(t, len(cacheValue) > 0)
+								assert.True(t, cacheValue != nil)
 							}}},
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
 						c.JSON(200, gin.H{
 							"message": "12123",
 						})
@@ -672,10 +684,10 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 
 				if item.doError {
 					assert.Equal(t, cacheValue, "")
-					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, string(cacheValue.Body))
 					assert.False(t, equalJSON)
 				} else {
-					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, cacheValue)
+					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, string(cacheValue.Body))
 					assert.True(t, equalJSON)
 				}
 			})
@@ -752,9 +764,9 @@ func Test_All_Cache_Evict(t *testing.T) {
 						},
 					},
 					func(c *gin.Context) {
-						json := make(map[string]interface{})
-						c.BindJSON(&json)
-						c.JSON(200, json)
+						body := make(map[string]interface{})
+						_ = c.BindJSON(&body)
+						c.JSON(200, body)
 					},
 				))
 
@@ -778,11 +790,11 @@ func AreEqualJSON(s1, s2 string) (bool, error) {
 	var err error
 	err = json.Unmarshal([]byte(s1), &o1)
 	if err != nil {
-		return false, fmt.Errorf("Error mashalling string 1 :: %s", err.Error())
+		return false, fmt.Errorf("error mashalling string 1 :: %s", err.Error())
 	}
 	err = json.Unmarshal([]byte(s2), &o2)
 	if err != nil {
-		return false, fmt.Errorf("Error mashalling string 2 :: %s", err.Error())
+		return false, fmt.Errorf("error mashalling string 2 :: %s", err.Error())
 	}
 
 	return reflect.DeepEqual(o1, o2), nil
