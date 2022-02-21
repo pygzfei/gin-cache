@@ -37,7 +37,7 @@ func givingCacheOfHttpServer(timeout time.Duration, runFor RunFor, onHit ...func
 	} else if runFor == RedisCache {
 		redisHost := os.Getenv("REDIS_HOST")
 		if redisHost == "" {
-			redisHost = "127.0.0.1"
+			redisHost = "localhost"
 		}
 		cache, _ = startup.RedisCache(
 			timeout,
