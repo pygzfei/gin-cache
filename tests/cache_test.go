@@ -340,8 +340,7 @@ func Test_Cache_Evict(t *testing.T) {
 				r.ServeHTTP(w, req)
 
 				loadCache := cache.Load(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
-
-				assert.Equal(t, loadCache, "")
+				assert.Equal(t, loadCache == nil, true)
 			})
 
 		}
@@ -427,7 +426,7 @@ func Test_Cache_Fuzzy_Evict(t *testing.T) {
 				r.ServeHTTP(w, req)
 
 				cacheValue := cache.Load(context.Background(), fmt.Sprintf("anson:hash:%s", item.Hash))
-				assert.Equal(t, cacheValue, "")
+				assert.Equal(t, cacheValue == nil, true)
 			})
 		}
 	}
@@ -457,7 +456,7 @@ func Test_Cache_Timeout_Event(t *testing.T) {
 
 				time.Sleep(time.Second * 2)
 				loadCache := cache.Load(context.Background(), cacheKey)
-				assert.Equal(t, loadCache, "")
+				assert.Equal(t, loadCache == nil, true)
 			})
 		}
 	}
@@ -627,7 +626,7 @@ func Test_Post_Method_Should_Be_Evict(t *testing.T) {
 
 				cacheValue = cache.Load(context.Background(), sprintf)
 
-				assert.Equal(t, cacheValue, "")
+				assert.Equal(t, cacheValue == nil, true)
 
 			})
 		}
@@ -683,9 +682,7 @@ func Test_Put_Method_Should_Be_Cache(t *testing.T) {
 				cacheValue := cache.Load(context.Background(), sprintf)
 
 				if item.doError {
-					assert.Equal(t, cacheValue, "")
-					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, string(cacheValue.Body))
-					assert.False(t, equalJSON)
+					assert.Equal(t, cacheValue == nil, true)
 				} else {
 					equalJSON, _ := AreEqualJSON(`{"message": "12123"}`, string(cacheValue.Body))
 					assert.True(t, equalJSON)
@@ -734,7 +731,7 @@ func Test_Diff_Timeout_Cache_Evict(t *testing.T) {
 
 				loadCache := cache.Load(context.Background(), fmt.Sprintf("anson:id:%s&name=%s", item.Id, item.Hash))
 
-				assert.Equal(t, loadCache, "")
+				assert.Equal(t, loadCache == nil, true)
 			})
 
 		}
@@ -776,7 +773,7 @@ func Test_All_Cache_Evict(t *testing.T) {
 
 				loadCache := cache.Load(context.Background(), fmt.Sprintf("anson:userid:%s hash:%s", item.Id, item.Hash))
 
-				assert.Equal(t, loadCache, "")
+				assert.Equal(t, loadCache == nil, true)
 			})
 
 		}

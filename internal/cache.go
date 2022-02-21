@@ -44,13 +44,12 @@ func New(c Cache, onCacheHit ...func(c *gin.Context, cacheValue *CacheItem)) *Ca
 func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-
 		doCache := len(caching.Cacheable) > 0
 		doEvict := len(caching.Evict) > 0
 		ctx := context.Background()
 
 		var key = ""
-		var cacheItem = &CacheItem{}
+		var cacheItem *CacheItem = nil
 
 		if c.Request.Body != nil {
 			body, err := ioutil.ReadAll(c.Request.Body)
@@ -98,7 +97,6 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 				//cloneHeader.Set("X-Cache", "HIT;")
 				//cloneHeader.Set("Cache-Control", "private;")
 				//cloneHeader.Set("Expires", time.Now().Add(caching.Cacheable[0].CacheTime).Format(time.RFC1123))
-
 				cacheItem = &CacheItem{
 					Header:     c.Writer.Header().Clone(),
 					HeaderCode: c.Writer.Status(),
@@ -140,8 +138,7 @@ func (cache *CacheHandler) doCacheEvict(ctx context.Context, c *gin.Context, cac
 }
 
 func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, item *CacheItem) {
-
-	if len(caching.Cacheable[0].OnCacheHit) > 0 {
+	if len(caching.Cacheable) > 0 && len(caching.Cacheable[0].OnCacheHit) > 0 {
 		caching.Cacheable[0].OnCacheHit[0](ctx, item)
 		ctx.Abort()
 		return
@@ -157,6 +154,7 @@ func (cache *CacheHandler) doCacheHit(ctx *gin.Context, caching Caching, item *C
 	for k, v := range item.Header {
 		ctx.Writer.Header()[k] = v
 	}
+
 	_, _ = ctx.Writer.Write(item.Body)
 	ctx.Writer.WriteHeader(item.HeaderCode)
 	ctx.Abort()
