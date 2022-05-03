@@ -30,7 +30,7 @@ func (r *redisCache) Set(ctx context.Context, key string, data string, timeout t
 }
 
 func (r *redisCache) DoEvict(ctx context.Context, keys []string) {
-	evictKeys := []string{}
+	var evictKeys []string
 	for _, key := range keys {
 		var cursor uint64
 		deleteKeys, _, err := r.cacheStore.Scan(ctx, cursor, key, math.MaxUint16).Result()

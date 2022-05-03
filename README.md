@@ -25,7 +25,7 @@ go get -u github.com/pygzfei/gin-cache
 
 ## Quick start
 
-```
+```go
 package main
 
 import (
@@ -37,12 +37,7 @@ import (
 
 func main() {
 
-	cache, _ := startup.MemCache(
-	// Global cache time
-	// The survival time of each cache is 30 minutes. 
-	// Different key values have different expiration times and do not affect each other
-		time.Minute * 30, 
-	)
+	cache, _ := startup.MemCache()
 	r := gin.Default()
 
 	r.GET("/ping", cache.Handler(
@@ -69,10 +64,8 @@ func main() {
 
 ## Overwrite global cache time
 
-```
-cache, _ := startup.MemCache(
-    time.Minute * 30, // Global cache time
-)
+```go
+cache, _ := startup.MemCache()
 
 r := gin.Default()
 
@@ -95,7 +88,7 @@ r.GET("/ping_for_timeout", cache.Handler(
 
 ## Trigger Cache evict
 
-```
+```go
 // Post Body Json: {"id": 1}
 // The cache key value that will trigger invalidation is: `anson:userid:1`
 r.POST("/ping", cache.Handler(
@@ -131,7 +124,7 @@ r.POST("/ping", cache.Handler(
 
 ## Use Redis
 
-```
+```go
 cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
     Password: "",
@@ -144,7 +137,7 @@ cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
 
 cache instance, returns "application/json; Charset=utf-8" by default
 
-```
+```go
 ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 ctx.String(http.StatusOK, cacheValue)
 ctx.Abort()
@@ -152,7 +145,7 @@ ctx.Abort()
 
 also, can use the global Hook to intercept the return information
 
-```
+```go
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // cached value, which can be intercepted globally
 })
@@ -161,7 +154,7 @@ cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
 
 also, use a separate Hook to intercept a message return
 
-```
+```go
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // will not be executed here
 })
@@ -183,7 +176,3 @@ r.GET("/pings", cache.Handler(
     },
 ))
 ```
-
-## Rules
-
-    ...
