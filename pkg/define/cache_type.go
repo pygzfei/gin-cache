@@ -21,12 +21,6 @@ type Cacheable struct {
 	OnCacheHit CacheHitHook // 命中缓存钩子 优先级最高, 可覆盖Caching的OnCacheHitting
 }
 
-// CacheEvict do Evict
-//type CacheEvict struct {
-//	CacheName []string
-//	Key       string
-//}
-
 // Caching mixins Cacheable and CacheEvict
 type Caching struct {
 	Cacheable []Cacheable
