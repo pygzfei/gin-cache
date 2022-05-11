@@ -17,7 +17,7 @@
 go get -u github.com/pygzfei/gin-cache
 ```
 ## 快速开始
-```
+```go
 package main
 
 import (
@@ -57,7 +57,7 @@ func main() {
 
 ## 独立的缓存时间
 
-```
+```go
 cache, _ := startup.MemCache(
     time.Minute * 30, // 全局的缓存时间, 每个条缓存的存活时间为30分钟, 不同的key值会有不同的失效时间, 互不影响
 )
@@ -82,7 +82,7 @@ r.GET("/ping_for_timeout", cache.Handler(
 ```
 
 ## 触发缓存驱逐
-```
+```go
 // Post Body Json: {"id": 1}
 // 将会触发失效的缓存Key值为: `anson:userid:1`
 r.POST("/ping", cache.Handler(
@@ -117,7 +117,7 @@ r.POST("/ping", cache.Handler(
 ```
 
 ## 使用Redis
-```
+```go
 cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
     Addr:     "localhost:6379",
     Password: "",
@@ -128,20 +128,20 @@ cache, _ := startup.RedisCache(time.Second*30, &redis.Options{
 
 ## Hooks
 缓存实例, 默认返回"application/json; Charset=utf-8", 类似的代码如下:
-```
+```go
 ctx.Writer.Header().Set("Content-Type", "application/json; Charset=utf-8")
 ctx.String(http.StatusOK, cacheValue)
 ctx.Abort()
 ````
 可以使用全局的Hook拦截返回信息
-```
+```go
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // 被缓存的值, 可以在全局拦截
 })
 
 ```
 也可以使用独立的Hook去拦截某个消息返回
-```
+```go
 cache, _ := startup.MemCache(timeout, func(c *gin.Context, cacheValue string) {
     // 这里不会被执行
 })

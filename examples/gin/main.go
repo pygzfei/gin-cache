@@ -21,11 +21,21 @@ func main() {
 			},
 		},
 		func(c *gin.Context) {
+			query, _ := c.GetQuery("id")
+
 			c.JSON(200, gin.H{
-				"message": "pong", // 返回数据将会被缓存
+				"message": query, // 返回数据将会被缓存
 			})
 		},
 	))
 
-	r.Run()
+	r.GET("/pings", func(c *gin.Context) {
+		query, _ := c.GetQuery("id")
+
+		c.JSON(200, gin.H{
+			"message": query, // 返回数据将会被缓存
+		})
+	})
+
+	r.Run(":80")
 }
