@@ -5,6 +5,7 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/pygzfei/gin-cache/internal/utils"
+	"github.com/pygzfei/gin-cache/pkg"
 	. "github.com/pygzfei/gin-cache/pkg/define"
 	"io/ioutil"
 	"net/http"
@@ -64,8 +65,8 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 
 		if doCache {
 			// pointer 指向 writer, 重写 c.writer
-			c.Writer = &ResponseBodyWriter{
-				body:           bytes.NewBufferString(""),
+			c.Writer = &pkg.ResponseBodyWriter{
+				Body:           bytes.NewBufferString(""),
 				ResponseWriter: c.Writer,
 			}
 
@@ -92,7 +93,7 @@ func (cache *CacheHandler) Handler(caching Caching, next gin.HandlerFunc) gin.Ha
 		}
 		if doCache {
 			if cacheString = cache.loadCache(ctx, key); cacheString == "" {
-				s := c.Writer.(*ResponseBodyWriter).body.String()
+				s := c.Writer.(*pkg.ResponseBodyWriter).Body.String()
 				cache.setCache(ctx, key, s, caching.Cacheable[0].CacheTime)
 			}
 		}
