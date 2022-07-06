@@ -1,4 +1,4 @@
-package internal
+package pkg
 
 import (
 	"bytes"
@@ -8,10 +8,10 @@ import (
 // ResponseBodyWriter do change transform io writer
 type ResponseBodyWriter struct {
 	gin.ResponseWriter
-	body *bytes.Buffer
+	Body *bytes.Buffer
 }
 
 func (r ResponseBodyWriter) Write(b []byte) (int, error) {
-	r.body.Write(b)
+	r.Body.Write(b)
 	return r.ResponseWriter.Write(b)
 }
